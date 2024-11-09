@@ -391,20 +391,15 @@ file      main/menu.c
 defoption hello
 optfile hello main/hello.c
 
-# lab3
-defoption synch
 
 # lab2
 defoption syscalls
-optfile syscalls syscall/proc_syscalls.c
+optfile syscalls syscall/proc_syscalls.c   
 optfile syscalls syscall/file_syscalls.c
 
-# lab4
-defoption waitpid
-defoption fork
+# OS161 Project
+defoption c1-pag     # aggiungere file opzionali per progetto
 
-# lab5
-defoption file
 ########################################
 #                                      #
 #             Filesystems              #
