@@ -90,7 +90,7 @@ vaddr_t alloc_kpages(unsigned long npages) {
     return PADDR_TO_KVADDR(pa);
 }
 
-// Alloca una pagina di memoria per l'indirizzo virtuale dato
+// Alloca una pagina di memoria per l'indirizzo virtuale dato (per user )
 paddr_t page_alloc(vaddr_t vaddr) {
     paddr_t pa;
     struct addrspace *as_cur;
@@ -110,20 +110,25 @@ static paddr_t getppage_user(vaddr_t va, struct addrspace *as) {
     int found = 0, pos;
     int i;
     paddr_t pa;
-
-    // Cerca una pagina libera
+    
+    // Per proteggere l'accesso alla coremap
+    spinlock_acquire(&freemem_lock);
+    // Cerca una pagina precedentemente liberata
     for(i = 0; i < nRamFrames && !found; i++) {
         if(coremap[i].status == free) {
             found = 1;
+            break;
         }
     }
+    // Rilascio del lock precedentemente acquisito
+    spinlock_release(&freemem_lock);
 
     if(found) {
         pos = i;
         pa = i * PAGE_SIZE;
     }
     else {
-        // Se non ci sono pagine libere, chiede una pagina pulita
+        // Se non ci sono pagine libere, chiede una pagina pulita alla RAM
         spinlock_acquire(&stealmem_lock);
         pa = ram_stealmem(1);
         spinlock_release(&stealmem_lock);
@@ -132,10 +137,14 @@ static paddr_t getppage_user(vaddr_t va, struct addrspace *as) {
         pos = pa / PAGE_SIZE;
     }
 
+    // Per proteggere l'accesso alla coremap
+    spinlock_acquire(&freemem_lock);
     coremap[pos].as = as;
     coremap[pos].status = dirty;
     coremap[pos].vaddr = va;
     coremap[pos].alloc_size = 1;
+    // Rilascio del lock precedentemente acquisito
+    spinlock_release(&freemem_lock);
 
     return pa;
 }
@@ -147,8 +156,8 @@ static paddr_t getppages(unsigned long npages) {
     if (addr == 0) {
         spinlock_acquire(&stealmem_lock);
         addr = ram_stealmem(npages);
-        KASSERT(addr != 0);
         spinlock_release(&stealmem_lock);
+        KASSERT(addr != 0);
     }
     if (addr != 0 && isCoremapActive()) {
         spinlock_acquire(&freemem_lock);
@@ -207,10 +216,14 @@ void page_free(paddr_t addr) {
     KASSERT(coremap[pos].status != fixed);
     KASSERT(coremap[pos].status != clean);
 
+    // Per proteggere l'accesso alla coremap
+    spinlock_acquire(&freemem_lock);
     coremap[pos].status = free;
     coremap[pos].as = NULL;
     coremap[pos].alloc_size = 0;
     coremap[pos].vaddr = 0;
+    // Rilascio del lock precedentemente acquisito
+    spinlock_release(&freemem_lock);
 }
 
 // Libera le pagine kernel contigue specificate dall'indirizzo virtuale iniziale ( per kernel )
