@@ -400,6 +400,7 @@ optfile syscalls syscall/file_syscalls.c
 # OS161 Project
 defoption c1-pag     # aggiungere file opzionali per progetto
 optfile c1-pag vm/coremap.c  # modulo coremap
+optfile c1-pag vm/addrspace.c # modulo per gestione addrespace
 
 ########################################
 #                                      #

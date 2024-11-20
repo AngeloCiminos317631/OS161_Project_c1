@@ -51,7 +51,6 @@ struct vnode;
 
 struct addrspace {
 #if OPT_DUMBVM
-        struct pt_directory *page_table; // Puntatore alla page table a due livelli
         vaddr_t as_vbase1; 
         paddr_t as_pbase1;
         size_t as_npages1;
@@ -60,7 +59,15 @@ struct addrspace {
         size_t as_npages2;
         paddr_t as_stackpbase;
 #else
-        /* Put stuff here for your VM system */
+        /* vmc1 con configurazione opzione c1-pag*/
+        struct pt_directory *page_table; // Puntatore alla page table a due livelli
+        vaddr_t as_vbase1; 
+        paddr_t as_pbase1;
+        size_t as_npages1;
+        vaddr_t as_vbase2;
+        paddr_t as_pbase2;
+        size_t as_npages2;
+        paddr_t as_stackpbase;
 #endif
 };
 
