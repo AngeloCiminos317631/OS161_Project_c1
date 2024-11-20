@@ -40,22 +40,27 @@
  * used. The cheesy hack versions in dumbvm.c are used instead.
  */
 
-struct addrspace *
-as_create(void)
-{
-	struct addrspace *as;
+struct addrspace* as_create(void) {
+    struct addrspace* as = kmalloc(sizeof(struct addrspace));
+    if (as == NULL) {
+        return NULL;
+    }
 
-	as = kmalloc(sizeof(struct addrspace));
-	if (as == NULL) {
-		return NULL;
-	}
+    as->page_table = pt_create(); // Creazione della page table
+    if (as->page_table == NULL) {
+        kfree(as);
+        return NULL;
+    }
 
-	/*
-	 * Initialize as needed.
-	 */
+    as->as_vbase1 = 0;
+    as->as_npages1 = 0;
+    as->as_vbase2 = 0;
+    as->as_npages2 = 0;
+    as->as_stackpbase = 0;
 
-	return as;
+    return as;
 }
+
 
 int
 as_copy(struct addrspace *old, struct addrspace **ret)
@@ -77,15 +82,13 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 	return 0;
 }
 
-void
-as_destroy(struct addrspace *as)
-{
-	/*
-	 * Clean up as needed.
-	 */
-
-	kfree(as);
+void as_destroy(struct addrspace* as) {
+    if (as->page_table != NULL) {
+        pt_destroy(as->page_table); // Distruzione della page table
+    }
+    kfree(as);
 }
+
 
 void
 as_activate(void)
@@ -126,21 +129,35 @@ as_deactivate(void)
  * moment, these are ignored. When you write the VM system, you may
  * want to implement them.
  */
-int
-as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
-		 int readable, int writeable, int executable)
-{
-	/*
-	 * Write this.
-	 */
+int as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
+                     int readable, int writable, int executable) {
+    // Allinea l'indirizzo di partenza alla dimensione della pagina
+    vaddr &= PAGE_FRAME;
 
-	(void)as;
-	(void)vaddr;
-	(void)memsize;
-	(void)readable;
-	(void)writeable;
-	(void)executable;
-	return ENOSYS;
+    // Calcola la dimensione della memoria allineata alla pagina
+    memsize += vaddr & ~PAGE_FRAME;
+    memsize = (memsize + PAGE_SIZE - 1) & PAGE_FRAME;
+
+    // Calcola il numero di pagine richieste
+    size_t npages = memsize / PAGE_SIZE;
+
+    // Controlla se ci sono abbastanza regioni libere nello spazio degli indirizzi
+    if (as->region_count >= MAX_REGIONS) {
+        return ENOMEM;  // Errore: troppo poche regioni disponibili
+    }
+
+    // Trova una regione libera
+    struct as_region *region = &as->regions[as->region_count];
+    as->region_count++;
+
+    // Inizializza la regione
+    region->vbase = vaddr;
+    region->npages = npages;
+    region->readable = readable;
+    region->writable = writable;
+    region->executable = executable;
+
+    return 0;  // Successo
 }
 
 int

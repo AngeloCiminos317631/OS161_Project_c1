@@ -36,6 +36,7 @@
 
 
 #include <vm.h>
+#include <pt.h>
 #include "opt-dumbvm.h"
 
 struct vnode;
@@ -50,7 +51,8 @@ struct vnode;
 
 struct addrspace {
 #if OPT_DUMBVM
-        vaddr_t as_vbase1;
+        struct pt_directory *page_table; // Puntatore alla page table a due livelli
+        vaddr_t as_vbase1; 
         paddr_t as_pbase1;
         size_t as_npages1;
         vaddr_t as_vbase2;
