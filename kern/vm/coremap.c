@@ -48,7 +48,7 @@ void coremap_init() {
     KASSERT(nRamFrames > 0);
 
     coremap_size = sizeof(coremap_entry) * nRamFrames;
-    coremap = kmalloc(coremap_size);  // Alloca la memoria per la coremap
+    coremap = kmalloc(coremap_size);  // Alloca la memoria per la coremap, nel kernel space
     KASSERT(coremap != NULL);
 
     // Inizializza ciascun entry della coremap con valori di default
@@ -73,7 +73,7 @@ void coremap_shutdown() {
     for(i = 0; i < nRamFrames; i++) {
         page_free(i * PAGE_SIZE);  // Libera ogni pagina
     }
-    kfree(coremap);  // Libera la memoria della coremap
+    kfree(coremap);  // Libera la memoria della coremap dal kernel space
     spinlock_release(&freemem_lock);
 }
 
@@ -113,7 +113,7 @@ static paddr_t getppage_user(vaddr_t va, struct addrspace *as) {
     
     // Per proteggere l'accesso alla coremap
     spinlock_acquire(&freemem_lock);
-    // Cerca una pagina precedentemente liberata
+    // Cerca una pagina precedentemente liberata, usando una ricerca lineare
     for(i = 0; i < nRamFrames && !found; i++) {
         if(coremap[i].status == free) {
             found = 1;
@@ -128,11 +128,12 @@ static paddr_t getppage_user(vaddr_t va, struct addrspace *as) {
         pa = i * PAGE_SIZE;
     }
     else {
-        // Se non ci sono pagine libere, chiede una pagina pulita alla RAM
+        // Se non ci sono pagine libere, chiede una pagina 'clean' alla RAM
         spinlock_acquire(&stealmem_lock);
         pa = ram_stealmem(1);
         spinlock_release(&stealmem_lock);
 
+        //Fa avvenire il crash del kernel, quando non c'è più memoria da "rubare" alla RAM
         KASSERT(pa != 0);
         pos = pa / PAGE_SIZE;
     }
@@ -153,14 +154,17 @@ static paddr_t getppage_user(vaddr_t va, struct addrspace *as) {
 static paddr_t getppages(unsigned long npages) {
     paddr_t addr;
     addr = getfreeppages(npages);
+    // Viene ritornato 0 se non sono disponibili pagine liberate in precedenza, quindi si "rubano" dalla RAM
     if (addr == 0) {
         spinlock_acquire(&stealmem_lock);
         addr = ram_stealmem(npages);
         spinlock_release(&stealmem_lock);
+        // dopo aver rubato memoria dobbiamo avere necessariamente l'indirizzo fisico diverso da 0, se no viene generato un crash del kernel
         KASSERT(addr != 0);
     }
     if (addr != 0 && isCoremapActive()) {
         spinlock_acquire(&freemem_lock);
+        //Vengono aggiornate le ritornate da getfreeppages nella coremap, cambiando lo stato da "clean" a "fixed" , cioè assegnate al kernel
         coremap[addr / PAGE_SIZE].alloc_size = npages;
         coremap[addr / PAGE_SIZE].status = fixed;
 
