@@ -129,8 +129,9 @@ as_deactivate(void)
  * moment, these are ignored. When you write the VM system, you may
  * want to implement them.
  */
-int as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
-                     int readable, int writable, int executable) {
+int as_define_region(struct addrspace *as, uint32_t type, uint32_t offset,
+					vaddr_t vaddr, size_t memsize, uint32_t filesize,
+					int readable, int writable, int executable, int segNo) {
     // Allinea l'indirizzo di partenza alla dimensione della pagina
     vaddr &= PAGE_FRAME;
 

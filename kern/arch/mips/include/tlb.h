@@ -60,6 +60,11 @@ void tlb_write(uint32_t entryhi, uint32_t entrylo, uint32_t index);
 void tlb_read(uint32_t *entryhi, uint32_t *entrylo, uint32_t index);
 int tlb_probe(uint32_t entryhi, uint32_t entrylo);
 
+void tlb_init(void);
+void tlb_shutdown(void);
+int tlb_get_rr_victim(void);
+int tlb_linear_search(vaddr_t va);
+
 /*
  * TLB entry fields.
  *
@@ -101,5 +106,10 @@ int tlb_probe(uint32_t entryhi, uint32_t entrylo);
 
 #define NUM_TLB  64
 
+struct pagetable {
+    unsigned int n_page;
+    paddr_t* pages;
+};
+struct pagetable *tlb = NULL;
 
 #endif /* _MIPS_TLB_H_ */
