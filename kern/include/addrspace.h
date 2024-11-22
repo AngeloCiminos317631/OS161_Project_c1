@@ -61,13 +61,10 @@ struct addrspace {
 #else
         /* vmc1 con configurazione opzione c1-pag*/
         struct pt_directory *page_table; // Puntatore alla page table a due livelli
-        vaddr_t as_vbase1; 
-        paddr_t as_pbase1;
-        size_t as_npages1;
-        vaddr_t as_vbase2;
-        paddr_t as_pbase2;
-        size_t as_npages2;
-        paddr_t as_stackpbase;
+        
+        struct segment* code;   // suddivisione addrspace nei tre segmenti "code", "data" e lo stack
+        struct segment* data;       
+        struct segment* stack;
 #endif
 };
 
@@ -118,6 +115,18 @@ void              as_activate(void);
 void              as_deactivate(void);
 void              as_destroy(struct addrspace *);
 
+/*
+
+Vecchia definizione della region
+
+int               as_define_region(struct addrspace *as,
+                                   vaddr_t vaddr, size_t sz,
+                                   int readable,
+                                   int writeable,
+                                   int executable);
+
+*/
+
 int               as_define_region(struct addrspace *as,
                                 uint32_t type, uint32_t offset,
                                 vaddr_t vaddr, size_t memsize,
@@ -125,7 +134,7 @@ int               as_define_region(struct addrspace *as,
                                 int readable,
                                 int writeable,
                                 int executable,
-                                int segNo);
+                                int seg_n);
 int               as_prepare_load(struct addrspace *as);
 int               as_complete_load(struct addrspace *as);
 int               as_define_stack(struct addrspace *as, vaddr_t *initstackptr);

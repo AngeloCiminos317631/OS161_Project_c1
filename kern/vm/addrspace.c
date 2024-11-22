@@ -33,6 +33,7 @@
 #include <addrspace.h>
 #include <vm.h>
 #include <proc.h>
+#include <elf.h>
 
 /*
  * Note! If OPT_DUMBVM is set, as is the case until you start the VM
@@ -46,17 +47,18 @@ struct addrspace* as_create(void) {
         return NULL;
     }
 
-    as->page_table = pt_create(); // Creazione della page table
-    if (as->page_table == NULL) {
-        kfree(as);
-        return NULL;
-    }
+	// Valutare per prossime modifiche
 
-    as->as_vbase1 = 0;
-    as->as_npages1 = 0;
-    as->as_vbase2 = 0;
-    as->as_npages2 = 0;
-    as->as_stackpbase = 0;
+    // as->page_table = pt_create(); // Creazione della page table
+    // if (as->page_table == NULL) {
+    //     kfree(as);
+    //     return NULL;
+    // }
+
+    // creazione segmenti per le tre parti dell'addrspace
+	as->code = seg_create();
+	as->data = seg_create();
+	as->stack = seg_create();
 
     return as;
 }
@@ -72,21 +74,28 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 		return ENOMEM;
 	}
 
-	/*
-	 * Write this.
-	 */
-
-	(void)old;
+	newas->code = old->code;
+	newas->data = old->data;
+	newas->stack = newas->stack;
 
 	*ret = newas;
 	return 0;
 }
 
 void as_destroy(struct addrspace* as) {
-    if (as->page_table != NULL) {
-        pt_destroy(as->page_table); // Distruzione della page table
-    }
-    kfree(as);
+   
+   // Valutare per prossime modifiche
+   
+    // if (as->page_table != NULL) {
+    //     pt_destroy(as->page_table); // Distruzione della page table
+    // }
+
+	KASSERT(as != NULL);
+	seg_destroy(as->code);
+	seg_destroy(as->data);
+	seg_destroy(as->stack);
+
+	kfree(as);
 }
 
 
@@ -129,36 +138,27 @@ as_deactivate(void)
  * moment, these are ignored. When you write the VM system, you may
  * want to implement them.
  */
-int as_define_region(struct addrspace *as, uint32_t type, uint32_t offset,
-					vaddr_t vaddr, size_t memsize, uint32_t filesize,
-					int readable, int writable, int executable, int segNo) {
-    // Allinea l'indirizzo di partenza alla dimensione della pagina
-    vaddr &= PAGE_FRAME;
+int
+as_define_region(struct addrspace *as, uint32_t type, uint32_t offset ,vaddr_t vaddr, size_t memsize,
+		 uint32_t filesize, int readable, int writeable, int executable, int seg_n)
+{
+	int res = 1;
+	int perm = 0x0;
 
-    // Calcola la dimensione della memoria allineata alla pagina
-    memsize += vaddr & ~PAGE_FRAME;
-    memsize = (memsize + PAGE_SIZE - 1) & PAGE_FRAME;
+	if(readable)
+		perm = perm | PF_R;
+	if(writeable)
+		perm = perm | PF_W;
+	if(executable)
+		perm = perm | PF_X;
 
-    // Calcola il numero di pagine richieste
-    size_t npages = memsize / PAGE_SIZE;
-
-    // Controlla se ci sono abbastanza regioni libere nello spazio degli indirizzi
-    if (as->region_count >= MAX_REGIONS) {
-        return ENOMEM;  // Errore: troppo poche regioni disponibili
-    }
-
-    // Trova una regione libera
-    struct as_region *region = &as->regions[as->region_count];
-    as->region_count++;
-
-    // Inizializza la regione
-    region->vbase = vaddr;
-    region->npages = npages;
-    region->readable = readable;
-    region->writable = writable;
-    region->executable = executable;
-
-    return 0;  // Successo
+	if(res == 0)
+		res = seg_define(as->code, type, offset, vaddr, filesize, memsize, perm);
+	else if(res == 1)
+		res = seg_define(as->data, type, offset, vaddr, filesize, memsize, perm);
+	
+	KASSERT(res == 0);	// segment defined correctly
+	return res;
 }
 
 int
@@ -186,13 +186,12 @@ as_complete_load(struct addrspace *as)
 int
 as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 {
-	/*
-	 * Write this.
-	 */
+	int res;
 
-	(void)as;
+	res = seg_define_stack(as->stack);
 
-	/* Initial user-level stack pointer */
+	KASSERT(res == 0) 
+	// File pointer iniziale USER-LEVEL
 	*stackptr = USERSTACK;
 
 	return 0;

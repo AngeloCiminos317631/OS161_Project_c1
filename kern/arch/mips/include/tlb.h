@@ -106,10 +106,4 @@ int tlb_linear_search(vaddr_t va);
 
 #define NUM_TLB  64
 
-struct pagetable {
-    unsigned int n_page;
-    paddr_t* pages;
-};
-struct pagetable *tlb = NULL;
-
 #endif /* _MIPS_TLB_H_ */
