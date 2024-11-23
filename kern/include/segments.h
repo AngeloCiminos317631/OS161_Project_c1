@@ -2,7 +2,7 @@
 #define _SEGMENTS_H_
 
 #include <types.h>
-
+#include <pt.h>
 
 struct segment {
     uint32_t	p_type;

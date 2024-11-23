@@ -38,92 +38,102 @@ void vm_can_sleep(void) {
     }
 }
 
-/** 
- * Funzione che gestisce i page fault 
- * @param fault_type: tipo di fault (lettura, scrittura, ecc.) 
- * @param fault_addr: indirizzo della pagina che ha causato il fault
+/**
+ * Gestisce un page fault per un processo.
+ * Questa funzione viene invocata quando si verifica un page fault durante
+ * l'esecuzione di un programma. La funzione determina il tipo di fault,
+ * recupera l'indirizzo fisico corrispondente tramite la page table, e se
+ * necessario, alloca un nuovo frame fisico per la pagina mancante. Infine,
+ * aggiorna la TLB con la mappatura tra l'indirizzo virtuale e fisico.
+ *
+ * @param fault_type Il tipo di fault che si è verificato. Può essere:
+ *                  - VM_FAULT_READONLY: accesso in scrittura a una pagina di sola lettura.
+ *                  - VM_FAULT_READ: accesso in lettura a una pagina.
+ *                  - VM_FAULT_WRITE: accesso in scrittura a una pagina.
+ * @param fault_addr L'indirizzo virtuale che ha causato il page fault.
+ *
+ * @return Un codice di errore (EFAULT o EINVAL) o 0 se il fault è stato gestito con successo.
  */
-void vm_fault_handler(int fault_type, vaddr_t fault_addr) {
+void vm_fault(int fault_type, vaddr_t fault_addr)
+{
     int i, spl;
     uint32_t ehi, elo;
     struct addrspace *as;
     paddr_t pa;
 
-    // Verifica il tipo di errore di page fault
-    if (fault_type == 0) { 
-        return EFAULT; 
-    }
+    // Se il tipo di fault è NULL, restituire EFAULT
+    if(fault_type == NULL)
+        return EFAULT;
 
-    switch(fault_type) {
+    // Gestione dei diversi tipi di fault
+    switch (fault_type) {
         case VM_FAULT_READONLY:
-            // Non gestiamo page fault in caso di tentativi di scrittura su pagine di sola lettura
-            return EFAULT;
+            // Se la fault è su una pagina di sola lettura, restituiamo EFAULT
+            return EFAULT; // Restituisce un errore generico
         case VM_FAULT_READ:
         case VM_FAULT_WRITE:
-            // Gestiamo i casi di lettura e scrittura
-            break;
+            break; // Se la fault è di lettura o scrittura, proseguiamo
         default:
-            // Tipo di fault non riconosciuto
-            return EINVAL;
+            return EINVAL; // Se il tipo di fault non è supportato, ritorna EINVAL
     }
 
-    // Verifica che esista un processo corrente
+    // Verifica se non c'è alcun processo corrente
     if (curproc == NULL) {
+        /*
+         * Se non c'è un processo (probabilmente un errore kernel durante l'avvio),
+         * restituiamo EFAULT per evitare un ciclo infinito di fault.
+         */
         return EFAULT;
     }
 
-    // Recupera l'address space del processo corrente
+    // Ottieni l'address space del processo corrente
     as = proc_getas();
     if (as == NULL) {
-        // Se l'address space è NULL, probabilemente è un errore del kernel in fase di avvio
+        /*
+         * Se il processo non ha un address space (probabilmente errore kernel),
+         * restituiamo EFAULT.
+         */
         return EFAULT;
     }
 
-    // Cerca l'indirizzo fisico associato a fault_addr nella tabella delle pagine del processo
-    pa = pt_get_pa(as->page_table, fault_addr);
+    // Cerchiamo l'indirizzo fisico corrispondente nel page table
+    pa = pt_get_pa(as->pt, fault_addr);
 
-    // Se l'indirizzo fisico non è presente, significa che la pagina non è ancora mappata
-    if (pa == PFN_NOT_USED) {
-        paddr_t new_pa = alloc_kpages(1);
-        if (new_pa == 0) {
-            // Errore di allocazione di memoria
-            return ENOMEM;
-        }
-
-        // Mappa il nuovo frame all'indirizzo virtuale 'fault_addr'
-        pt_set_pa(as->page_table, fault_addr, new_pa);
-        pa = new_pa;
+    // Se non esiste, dobbiamo allocare un nuovo frame
+    if(pa == PFN_NOT_USED) {
+        // TODO: Gestire l'allocazione di un nuovo frame per la pagina
+        // POSSIBILE MIGLIORAMENTO:
+        // Implementare la logica per allocare un nuovo frame fisico,
+        // mappando la pagina virtuale con un nuovo frame di memoria.
+        // Potrebbe essere necessario chiamare una funzione di allocazione
+        // della memoria fisica e aggiornare la TLB.
     }
+    
+    // Se l'indirizzo fisico esiste, aggiorniamo la TLB
+    KASSERT((pa & PAGE_FRAME) == pa);  // Verifica che l'indirizzo fisico sia allineato alla pagina
 
-    // Verifica che l'indirizzo fisico sia allineato a una pagina
-    KASSERT((pa & PAGE_FRAME) == pa);
-
-    // Disattiva le interruzioni per evitare problemi di concorrenza durante la modifica della TLB
+    // Disabilita le interruzioni per gestire la TLB in modo sicuro
     spl = splhigh();
 
-    // Cerca un entry non valida nella TLB in cui inserire la nuova mappatura
-    for (i = 0; i < TLB_NUM; i++) {
-        tlb_read(&ehi, &elo, i);
+    // Cerca una voce libera nella TLB per scrivere la mappatura
+    for (i = 0; i < NUM_TLB; i++) {
+        tlb_read(&ehi, &elo, i); // Leggi la voce dalla TLB
         if (elo & TLBLO_VALID) {
-            continue;
+            continue; // Se la voce è già valida, saltala
         }
+        
+        // Se trovi una voce libera, aggiorna la TLB
+        ehi = fault_addr;  // Imposta l'indirizzo virtuale
+        elo = pa | TLBLO_DIRTY | TLBLO_VALID;  // Imposta l'indirizzo fisico, marcando la voce come valida e "sporca" (modificata)
+        DEBUG(DB_VM, "dumbvm: 0x%x -> 0x%x\n", fault_addr, pa); // Debug per tracciare la mappatura
+        tlb_write(ehi, elo, i);  // Scrivi la mappatura nella TLB
 
-        // Configura i campi 'ehi' e 'elo' per la nuova mappatura
-        ehi = fault_addr;
-        elo = pa | TLBLO_VALID | (fault_type == VM_FAULT_WRITE ? TLBLO_DIRTY : 0) | TLBLO_GLOBAL;
-        tlb_write(ehi, elo, i);
-        break;  // Esci dopo aver inserito la mappatura
+        splx(spl);  // Ripristina le interruzioni
+        return 0;  // La fault è stata gestita con successo
     }
 
-    if (i == TLB_NUM) {
-        // Se la TLB è piena
-        kprintf("dumbvm: TLB piena!\n");
-        splx(spl);
-        return EFAULT;
-    }
-
-    // Ripristina le interruzioni
-    splx(spl);
-
-    return 0;
+    // Se non ci sono voci libere nella TLB, stampa un errore
+    kprintf("dumbvm: Ran out of TLB entries - cannot handle page fault\n");
+    splx(spl);  // Ripristina le interruzioni
+    return EFAULT;  // Restituisci un errore
 }

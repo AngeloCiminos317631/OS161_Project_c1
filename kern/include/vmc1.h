@@ -3,28 +3,29 @@
 
 #include <vm.h>
 
-#define VMC1_STACKPAGES 18
+#define VMC1_STACKPAGES 18  // Numero di pagine riservate per lo stack
 
 /*
- * Funzione per inizializzare il sottosistema
- * di memoria virtuale.
+ * Inizializza il sottosistema di memoria virtuale.
+ * Configura le risorse necessarie per la gestione della memoria virtuale.
  */
 void vm_bootstrap(void);
 
 /*
- * Funzione per controllare se il sistema Ã¨ in uno stato sicuro
- * per consentire l'attesa (o sleep).
+ * Verifica se il sistema può entrare in stato di attesa (sleep).
+ * Assicura che non ci siano operazioni critiche in corso.
  */
 void vm_can_sleep(void);
 
 /*
- * Funzione per liberare risorse allocate nel sottosistema
- * della memoria virtuale.
+ * Libera le risorse del sottosistema di memoria virtuale.
+ * Viene chiamata durante lo spegnimento del sistema o quando la memoria virtuale non è più necessaria.
  */
 void vm_shutdown(void);
 
 /*
- * Funzione per gestire i page fault.
+ * Gestisce un page fault.
+ * Risolve l'accesso a una pagina non mappata, recuperando l'indirizzo fisico o allocando una nuova pagina.
  */
 void vm_fault_handler(int fault_type, vaddr_t fault_addr);
 

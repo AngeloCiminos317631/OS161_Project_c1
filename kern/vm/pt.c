@@ -1,147 +1,197 @@
-include <types.h>
+#include <types.h>
 #include <kern/errno.h>
 #include <lib.h>
+#include <spl.h>
+#include <cpu.h>
+#include <spinlock.h>
+#include <proc.h>
+#include <current.h>
+#include <mips/tlb.h>
 #include <vm.h>
 
-/* Costanti */
-#define PAGE_SIZE 4096
-#define SIZE_PT_OUTER 64
-#define SIZE_PT_INNER 256
-#define PFN_NOT_USED 0xFFFFFFFF
+#include <pt.h>
+#include <vmc1.h>
 
-/* Strutture */
-struct pt_inner_entry {
-    uint8_t valid;
-    paddr_t pfn;
-};
+/* Funzioni di utilità per l'estrazione di indici e offset dall'indirizzo virtuale */
 
-struct pt_outer_entry {
-    uint8_t valid;
-    struct pt_inner_entry* pages;
-};
-
-struct pt_directory {
-    unsigned int size;
-    struct pt_outer_entry* pages;
-};
-
-/* Funzioni di utilità */
+/**
+ * Estrae l'indice per la outer table dall'indirizzo virtuale.
+ * @param va: indirizzo virtuale
+ * @return indice nella outer table
+ */
 static int get_outer_index(vaddr_t va) {
-    return (va >> 22) & 0x3F; // Usa solo i bit per l'outer table
+    return va & P_OUT_MASK; // Usa i bit corrispondenti alla outer table
 }
 
+/**
+ * Estrae l'indice per la inner table dall'indirizzo virtuale.
+ * @param va: indirizzo virtuale
+ * @return indice nella inner table
+ */
 static int get_inner_index(vaddr_t va) {
-    return (va >> 12) & 0xFF; // Usa solo i bit per l'inner table
+    return va & P_IN_MASK; // Usa i bit corrispondenti alla inner table
 }
 
+/**
+ * Estrae l'offset all'interno di una pagina dall'indirizzo virtuale.
+ * @param va: indirizzo virtuale
+ * @return offset all'interno della pagina
+ */
 static int get_page_offset(vaddr_t va) {
-    return va & 0xFFF; // Offset interno alla pagina
+    return va & D_MASK; // Usa i bit meno significativi (offset)
 }
 
-/* 
- * Crea una nuova page table a due livelli.
- * Alloca memoria per la struttura di gestione e inizializza le sue entries.
+/**
+ * Calcola il numero di pagine necessarie per un segmento di memoria.
+ * @param memsize: dimensione in byte del segmento
+ * @param va: indirizzo virtuale di partenza del segmento
+ * @return numero di pagine necessarie
+ */
+static unsigned int get_npages(uint32_t memsize, vaddr_t va) {
+    unsigned int npages;
+
+    // Calcola il numero totale di byte, considerando l'offset iniziale
+    npages = memsize + (va & ~PAGE_FRAME);
+
+    // Arrotonda il numero di byte al multiplo di PAGE_SIZE più vicino
+    npages = ((npages + PAGE_SIZE - 1) & PAGE_FRAME) / PAGE_SIZE;
+
+    return npages;
+}
+
+/* Gestione della struttura della page table */
+
+/**
+ * Crea una nuova directory di pagine (outer table).
+ * Alloca memoria per la struttura e inizializza tutte le entries come non valide.
+ * @return puntatore alla nuova directory di pagine
  */
 struct pt_directory* pt_create(void) {
-    struct pt_directory* pt = kmalloc(sizeof(struct pt_directory));
-    KASSERT(pt != NULL);
+    int i;
+    struct pt_directory *pt;
+
+    pt = kmalloc(sizeof(struct pt_directory));
+    KASSERT(pt != NULL); // Assicura che la memoria sia stata allocata
 
     pt->size = SIZE_PT_OUTER;
-    pt->pages = kmalloc(sizeof(struct pt_outer_entry) * SIZE_PT_OUTER);
-    KASSERT(pt->pages != NULL);
+    pt->pages = kmalloc(sizeof(pt_outer_entry) * SIZE_PT_OUTER);
+    KASSERT(pt->pages != NULL); // Assicura che la memoria sia stata allocata
 
-    for (int i = 0; i < pt->size; i++) {
+    // Inizializza tutte le entries della outer table come non valide
+    for (i = 0; i < pt->size; i++) {
+        pt->pages[i] = NULL;
         pt->pages[i].valid = 0;
-        pt->pages[i].pages = NULL;
     }
 
     return pt;
 }
 
-/* 
- * Distrugge una inner table specifica, liberando la memoria associata.
+/**
+ * Libera la memoria associata a una inner table.
+ * @param inner_pages: puntatore alla inner table
  */
 static void pt_destroy_inner(struct pt_inner_entry* inner_pages) {
-    KASSERT(inner_pages != NULL);
+    KASSERT(inner_pages != NULL); // Assicura che il puntatore sia valido
     kfree(inner_pages);
 }
 
-/* 
- * Distrugge un'intera page table, liberando tutte le risorse allocate.
+/**
+ * Libera tutta la memoria associata a una directory di pagine (outer table e inner tables).
+ * @param pt: puntatore alla directory di pagine
  */
 void pt_destroy(struct pt_directory* pt) {
-    KASSERT(pt != NULL);
+    KASSERT(pt != NULL); // Assicura che il puntatore sia valido
 
+    // Itera su tutte le entries della outer table
     for (int i = 0; i < pt->size; i++) {
-        if (pt->pages[i].valid) {
-            pt_destroy_inner(pt->pages[i].pages);
+        if (pt->pages[i] != NULL && pt->pages[i].valid) {
+            pt_destroy_inner(pt->pages[i]); // Libera la inner table se valida
         }
     }
 
+    // Libera la memoria della outer table e della struttura
     kfree(pt->pages);
     kfree(pt);
 }
 
-/* 
- * Invalida tutte le mappature in un contesto (page table),
- * rendendo tutte le entries non valide.
- */
-void pt_invalidate_context(struct pt_directory* pt) {
-    KASSERT(pt != NULL);
-
-    for (int i = 0; i < pt->size; i++) {
-        if (pt->pages[i].valid) {
-            pt_destroy_inner(pt->pages[i].pages);
-            pt->pages[i].valid = 0;
-        }
-    }
-}
-
-/* 
- * Definisce una nuova inner table per un indirizzo virtuale specifico.
- * Alloca e inizializza la inner table.
+/**
+ * Definisce una nuova inner table per una specifica entry della outer table.
+ * Alloca memoria per la inner table e inizializza le sue entries come non valide.
+ * @param pt: puntatore alla outer table
+ * @param va: indirizzo virtuale che richiede la nuova inner table
  */
 static void pt_define_inner(struct pt_directory* pt, vaddr_t va) {
-    int index = get_outer_index(va);
-    KASSERT(!pt->pages[index].valid);
+    int index, i;
 
-    pt->pages[index].pages = kmalloc(sizeof(struct pt_inner_entry) * SIZE_PT_INNER);
-    KASSERT(pt->pages[index].pages != NULL);
+    index = get_outer_index(va); // Ottiene l'indice della outer table
+    KASSERT(pt->pages[index].valid == 0); // Assicura che l'entry non sia già valida
 
-    pt->pages[index].valid = 1;
+    // Alloca memoria per la nuova inner table
+    pt->pages[index].size = SIZE_PT_INNER;
+    pt->pages[index].pages = kmalloc(sizeof(pt_inner_entry) * SIZE_PT_INNER);
+    KASSERT(pt->pages[index] != NULL);
 
-    for (int i = 0; i < SIZE_PT_INNER; i++) {
+    // Inizializza tutte le entries della inner table come non valide
+    for (i = 0; i < pt->pages[index].size; i++) {
         pt->pages[index].pages[i].valid = 0;
         pt->pages[index].pages[i].pfn = PFN_NOT_USED;
     }
 }
 
-/* 
- * Recupera l'indirizzo fisico corrispondente a un indirizzo virtuale,
- * se esiste una mappatura valida. Altrimenti, restituisce PFN_NOT_USED.
+/**
+ * Recupera l'indirizzo fisico associato a un indirizzo virtuale.
+ * Restituisce PFN_NOT_USED se non esiste una mappatura valida.
+ * @param pt: puntatore alla directory di pagine
+ * @param va: indirizzo virtuale da tradurre
+ * @return indirizzo fisico corrispondente o PFN_NOT_USED
  */
 paddr_t pt_get_pa(struct pt_directory* pt, vaddr_t va) {
-    int outer = get_outer_index(va);
-    int inner = get_inner_index(va);
+    unsigned int outer, inner, d;
 
-    if (!pt->pages[outer].valid) return PFN_NOT_USED;
-    if (!pt->pages[outer].pages[inner].valid) return PFN_NOT_USED;
+    outer = get_outer_index(va);
+    KASSERT(outer >= 0 && outer < SIZE_PT_OUTER);
 
-    return pt->pages[outer].pages[inner].pfn;
+    inner = get_inner_index(va);
+    KASSERT(inner >= 0 && inner < SIZE_PT_INNER);
+
+    d = get_page_offset(va);
+    KASSERT(d >= 0 && d < PAGE_SIZE);
+
+    if (pt->pages[outer].valid) {
+        if (pt->pages[outer].pages[inner].valid) {
+            return pt->pages[outer].pages[inner].pfn;
+        }
+    }
+
+    return PFN_NOT_USED;
 }
 
-/* 
+/**
  * Imposta una mappatura tra un indirizzo virtuale e un indirizzo fisico.
- * Se necessario, crea una nuova inner table.
+ * Se necessario, alloca una nuova inner table.
+ * @param pt: puntatore alla directory di pagine
+ * @param va: indirizzo virtuale
+ * @param pa: indirizzo fisico
  */
 void pt_set_pa(struct pt_directory* pt, vaddr_t va, paddr_t pa) {
-    int outer = get_outer_index(va);
-    int inner = get_inner_index(va);
+    unsigned int outer, inner, d;
 
+    outer = get_outer_index(va);
+    KASSERT(outer >= 0 && outer < SIZE_PT_OUTER);
+
+    inner = get_inner_index(va);
+    KASSERT(inner >= 0 && inner < SIZE_PT_INNER);
+
+    d = get_page_offset(va);
+    KASSERT(d >= 0 && d < PAGE_SIZE);
+
+    // Alloca una nuova inner table se necessario
     if (!pt->pages[outer].valid) {
         pt_define_inner(pt, va);
     }
 
+    // Imposta la mappatura nella inner table
+    KASSERT(pt->pages[outer].valid);
     pt->pages[outer].pages[inner].valid = 1;
     pt->pages[outer].pages[inner].pfn = pa;
 }

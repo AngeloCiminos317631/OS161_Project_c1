@@ -60,7 +60,7 @@ struct addrspace {
         paddr_t as_stackpbase;
 #else
         /* vmc1 con configurazione opzione c1-pag*/
-        struct pt_directory *page_table; // Puntatore alla page table a due livelli
+        struct pt_directory *pt; // Puntatore alla page table a due livelli
         
         struct segment* code;   // suddivisione addrspace nei tre segmenti "code", "data" e lo stack
         struct segment* data;       

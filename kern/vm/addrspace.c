@@ -59,7 +59,7 @@ struct addrspace* as_create(void) {
 	as->code = seg_create();
 	as->data = seg_create();
 	as->stack = seg_create();
-
+	as->pt = pt_create(); // Creazione della page table
     return as;
 }
 
@@ -76,7 +76,8 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 
 	newas->code = old->code;
 	newas->data = old->data;
-	newas->stack = newas->stack;
+	newas->stack = old->stack;
+	newas->pt = old->pt; // Copia della page table
 
 	*ret = newas;
 	return 0;
@@ -99,24 +100,38 @@ void as_destroy(struct addrspace* as) {
 }
 
 
-void
-as_activate(void)
+/**
+ * Attiva l'address space del processo corrente.
+ * 
+ * Se il processo ha un address space, invalida tutte le voci nella TLB
+ * per assicurarsi che le mappature siano aggiornate. Se il processo è un
+ * thread del kernel senza address space, non viene eseguita alcuna operazione.
+ */
+void as_activate(void)
 {
-	struct addrspace *as;
+    int i, spl;
+    struct addrspace *as;
 
-	as = proc_getas();
-	if (as == NULL) {
-		/*
-		 * Kernel thread without an address space; leave the
-		 * prior address space in place.
-		 */
-		return;
-	}
+    // Ottieni l'address space del processo corrente.
+    as = proc_getas();
 
-	/*
-	 * Write this.
-	 */
+    // Se il processo non ha un address space (es. thread del kernel), non fare nulla.
+    if (as == NULL) {
+        return;
+    }
+
+    // Disabilita le interruzioni per evitare che la TLB venga modificata durante l'operazione.
+    spl = splhigh();
+
+    // Invalida tutte le voci nella TLB per il nuovo address space.
+    for (i = 0; i < NUM_TLB; i++) {
+        tlb_write(TLBHI_INVALID(i), TLBLO_INVALID(), i);
+    }
+
+    // Ripristina le interruzioni al livello precedente.
+    splx(spl);
 }
+
 
 void
 as_deactivate(void)
@@ -145,6 +160,8 @@ as_define_region(struct addrspace *as, uint32_t type, uint32_t offset ,vaddr_t v
 	int res = 1;
 	int perm = 0x0;
 
+	KASSERT(seg_n < 2); // Solo due segmenti (code e data)
+
 	if(readable)
 		perm = perm | PF_R;
 	if(writeable)
@@ -152,9 +169,9 @@ as_define_region(struct addrspace *as, uint32_t type, uint32_t offset ,vaddr_t v
 	if(executable)
 		perm = perm | PF_X;
 
-	if(res == 0)
+	if(seg_n == 0)
 		res = seg_define(as->code, type, offset, vaddr, filesize, memsize, perm);
-	else if(res == 1)
+	else if(seg_n == 1)
 		res = seg_define(as->data, type, offset, vaddr, filesize, memsize, perm);
 	
 	KASSERT(res == 0);	// segment defined correctly
