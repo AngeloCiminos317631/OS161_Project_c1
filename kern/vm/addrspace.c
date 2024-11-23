@@ -30,12 +30,13 @@
 #include <types.h>
 #include <kern/errno.h>
 #include <lib.h>
+#include <spl.h>
 #include <addrspace.h>
 #include <vm.h>
 #include <proc.h>
 #include <elf.h>
 // Aggiunta header file per la TLB
-#include <tlb.h>
+#include <mips/tlb.h>
 
 /*
  * Note! If OPT_DUMBVM is set, as is the case until you start the VM
@@ -209,7 +210,7 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 
 	res = seg_define_stack(as->stack);
 
-	KASSERT(res == 0) 
+	KASSERT(res == 0);
 	// File pointer iniziale USER-LEVEL
 	*stackptr = USERSTACK;
 

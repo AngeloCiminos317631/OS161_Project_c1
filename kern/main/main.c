@@ -52,6 +52,7 @@
 #include "autoconf.h"  // for pseudoconfig
 
 #include "hello.h"
+#include <vmc1.h> // Inclusione header per gestione VM progetto
 
 
 /*

@@ -36,7 +36,8 @@
 #include <spl.h>
 #include <thread.h>
 #include <current.h>
-#include <vm.h>
+// #include <vm.h>  Vecchio modulo per la gestione della VM
+#include <vmc1.h>
 #include <mainbus.h>
 #include <syscall.h>
 

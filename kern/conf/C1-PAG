@@ -31,7 +31,8 @@ options semfs			# Semaphores for userland
 options sfs			# Always use the file system
 #options netfs			# You might write this as a project.
 
-options dumbvm			# Chewing gum and baling wire. 
+ # opzione per dumbvm, valutare se lasciare o NO, durante prova COMPILAZIONE
+ # options dumbvm			# Chewing gum and baling wire.
 
 # valutare di togliere o meno
 

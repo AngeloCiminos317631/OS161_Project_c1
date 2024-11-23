@@ -47,7 +47,7 @@ void coremap_init() {
     nRamFrames = ((int)ram_getsize()) / PAGE_SIZE;  // Calcola il numero di frame in RAM
     KASSERT(nRamFrames > 0);
 
-    coremap_size = sizeof(coremap_entry) * nRamFrames;
+    coremap_size = sizeof(struct coremap_entry) * nRamFrames;
     coremap = kmalloc(coremap_size);  // Alloca la memoria per la coremap, nel kernel space
     KASSERT(coremap != NULL);
 
@@ -152,6 +152,7 @@ static paddr_t getppage_user(vaddr_t va, struct addrspace *as) {
 
 // Ottiene npages pagine fisiche libere e le imposta come "fixed" nella coremap ( per il kernel )
 static paddr_t getppages(unsigned long npages) {
+    unsigned long i;
     paddr_t addr;
     addr = getfreeppages(npages);
     // Viene ritornato 0 se non sono disponibili pagine liberate in precedenza, quindi si "rubano" dalla RAM
@@ -168,7 +169,7 @@ static paddr_t getppages(unsigned long npages) {
         coremap[addr / PAGE_SIZE].alloc_size = npages;
         coremap[addr / PAGE_SIZE].status = fixed;
 
-        for(int i = 1; i < npages; i++) {
+        for(i = 1; i < npages; i++) {
             KASSERT(coremap[(addr / PAGE_SIZE) + i].alloc_size == 0);
             coremap[(addr / PAGE_SIZE) + i].status = fixed;
         }
@@ -188,7 +189,7 @@ static paddr_t getfreeppages(unsigned long npages) {
         if (coremap[i].status == free) {
             if (i == 0 || coremap[i-1].status != free) 
                 first = i;
-            if (i - first + 1 >= npages) {
+            if (i - first + 1 >= (long) npages) {
                 found = first;
                 break;
             }
@@ -196,7 +197,7 @@ static paddr_t getfreeppages(unsigned long npages) {
     }
         
     if (found >= 0) {
-        for (i = found; i < found + npages; i++) {
+        for (i = found; i < found + (long) npages; i++) {
             coremap[i].status = fixed;
             KASSERT(coremap[i].alloc_size == 0);
         }
@@ -249,7 +250,7 @@ static int freeppages(paddr_t addr, unsigned long npages) {
     KASSERT(nRamFrames > first);
 
     spinlock_acquire(&freemem_lock);
-    for (i = first; i < first + npages; i++) {
+    for (i = first; i < first + (long) npages; i++) {
         coremap[i].status = free;
         coremap[i].as = NULL;
         coremap[i].alloc_size = 0;

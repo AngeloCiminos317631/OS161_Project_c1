@@ -54,16 +54,15 @@ void vm_can_sleep(void) {
  *
  * @return Un codice di errore (EFAULT o EINVAL) o 0 se il fault è stato gestito con successo.
  */
-void vm_fault(int fault_type, vaddr_t fault_addr)
+int vm_fault(int fault_type, vaddr_t fault_addr)
 {
     int i, spl;
     uint32_t ehi, elo;
     struct addrspace *as;
     paddr_t pa;
 
-    // Se il tipo di fault è NULL, restituire EFAULT
-    if(fault_type == NULL)
-        return EFAULT;
+    //TODO
+    fault_addr &= PAGE_FRAME; //Per eliminare l'offset e lavorare con l'indirizzo base della pagina
 
     // Gestione dei diversi tipi di fault
     switch (fault_type) {
@@ -110,34 +109,41 @@ void vm_fault(int fault_type, vaddr_t fault_addr)
     }
 
     // TODO: Implementazione delL' aggiornamento della TLB
-    // Aggiornare o modificare il codice momentaneamente commentato
+    // Aggiornare o modificare il codice
 
-    
 
-    // // Disabilita le interruzioni per gestire la TLB in modo sicuro
-    // spl = splhigh();
+    // Disabilita le interruzioni per gestire la TLB in modo sicuro
+    spl = splhigh();
 
-    // // Cerca una voce libera nella TLB per scrivere la mappatura
-    // for (i = 0; i < NUM_TLB; i++) {
-    //     tlb_read(&ehi, &elo, i); // Leggi la voce dalla TLB
-    //     if (elo & TLBLO_VALID) {
-    //         continue; // Se la voce è già valida, saltala
-    //     }
+    // Cerca una voce libera nella TLB per scrivere la mappatura
+    for (i = 0; i < NUM_TLB; i++) {
+        tlb_read(&ehi, &elo, i); // Leggi la voce dalla TLB
+        if (elo & TLBLO_VALID) {
+            continue; // Se la voce è già valida, saltala
+        }
         
-    //     // Se trovi una voce libera, aggiorna la TLB
-    //     ehi = fault_addr;  // Imposta l'indirizzo virtuale
-    //     elo = pa | TLBLO_DIRTY | TLBLO_VALID;  // Imposta l'indirizzo fisico, marcando la voce come valida e "sporca" (modificata)
-    //     DEBUG(DB_VM, "dumbvm: 0x%x -> 0x%x\n", fault_addr, pa); // Debug per tracciare la mappatura
-    //     tlb_write(ehi, elo, i);  // Scrivi la mappatura nella TLB
+        // Se trovi una voce libera, aggiorna la TLB
+        ehi = fault_addr;  // Imposta l'indirizzo virtuale
+        elo = pa | TLBLO_DIRTY | TLBLO_VALID;  // Imposta l'indirizzo fisico, marcando la voce come valida e "sporca" (modificata)
+        DEBUG(DB_VM, "dumbvm: 0x%x -> 0x%x\n", fault_addr, pa); // Debug per tracciare la mappatura
+        tlb_write(ehi, elo, i);  // Scrivi la mappatura nella TLB
 
-    //     splx(spl);  // Ripristina le interruzioni
-    //     return 0;  // La fault è stata gestita con successo
-    // }
+        splx(spl);  // Ripristina le interruzioni
+        return 0;  // La fault è stata gestita con successo
+    }
 
-    // // Se non ci sono voci libere nella TLB, stampa un errore
-    // kprintf("dumbvm: Ran out of TLB entries - cannot handle page fault\n");
-    // splx(spl);  // Ripristina le interruzioni
+    // Se non ci sono voci libere nella TLB, stampa un errore
+    kprintf("dumbvm: Ran out of TLB entries - cannot handle page fault\n");
+    splx(spl);  // Ripristina le interruzioni
 
 
     return EFAULT;  // Restituisci un errore
 }
+
+    //TODO - Per il momento solo una copia di quello che veniva fatto con DUMBVM
+    void
+    vm_tlbshootdown(const struct tlbshootdown *ts)
+    {
+        (void)ts;
+        panic("dumbvm tried to do tlb shootdown?!\n");
+    }

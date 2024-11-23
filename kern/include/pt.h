@@ -59,13 +59,16 @@ void pt_destroy(struct pt_directory* pt);
  * @param pt Puntatore alla page table.
  * @param va Indirizzo virtuale che richiede una nuova inner table.
  */
-static void pt_define_inner(struct pt_directory* pt, vaddr_t va);
+void pt_define_inner(struct pt_directory* pt, vaddr_t va);
 
-/**
- * Distrugge una inner table e libera la memoria associata.
- * @param pt_inner Puntatore alla inner table da distruggere.
- */
-static void pt_destroy_inner(struct pt_inner_entry* pt_inner);
+// VALUTARE SEMPRE CON SIMONE
+void pt_destroy_inner(struct pt_outer_entry pt_inner);
+
+// /**
+//  * Distrugge una inner table e libera la memoria associata.
+//  * @param pt_inner Puntatore alla inner table da distruggere.
+//  */
+// void pt_destroy_inner(struct pt_inner_entry* pt_inner);
 
 /**
  * Recupera l'indirizzo fisico corrispondente a un indirizzo virtuale.

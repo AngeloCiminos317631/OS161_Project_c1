@@ -31,6 +31,7 @@
 #include <lib.h>
 #include <spinlock.h>
 #include <vm.h>
+#include <coremap.h> //inclusione header per modulo Coremap
 
 /*
  * Kernel malloc.

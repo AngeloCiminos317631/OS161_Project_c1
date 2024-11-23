@@ -342,7 +342,7 @@ file      proc/proc.c
 
 file      vm/kmalloc.c
 
-optfile dumbvm   vm/addrspace.c
+# optfile dumbvm   vm/addrspace.c Relativa a vecchia implementazione VM
 
 #
 # Network
@@ -387,21 +387,14 @@ file      syscall/time_syscalls.c
 file      main/main.c
 file      main/menu.c
 
-# lab1
-defoption hello
-optfile hello main/hello.c
-
-
-# lab2
-defoption syscalls
-optfile syscalls syscall/proc_syscalls.c   
-optfile syscalls syscall/file_syscalls.c
 
 # OS161 Project
 defoption c1-pag     # aggiungere file opzionali per progetto
 optfile c1-pag vm/coremap.c  # modulo coremap
 optfile c1-pag vm/addrspace.c # modulo per gestione addrespace
 optfile c1-pag vm/segments.c # modulo per la gestione dei segments
+optfile c1-pag vm/pt.c # modulo per la gestione della page table
+optfile c1-pag vm/vmc1.c # modulo per la gestione della VM
 
 ########################################
 #                                      #
@@ -458,3 +451,24 @@ file		test/kmalloctest.c
 file		test/fstest.c
 optfile net	test/nettest.c
 
+# Probabilmente non utilizzati ( valutare di togliere per errori COMPILAZIONE )
+
+########################################
+#                                      #
+#            Labs and utils            #
+#                                      #
+########################################
+# lab1
+defoption hello
+optfile hello main/hello.c
+# lab3
+defoption synch
+# lab2
+defoption syscalls
+optfile syscalls syscall/proc_syscalls.c
+optfile syscalls syscall/file_syscalls.c
+# lab4
+defoption waitpid
+defoption fork
+# lab5
+defoption file
