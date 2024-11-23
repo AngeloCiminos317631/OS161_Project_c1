@@ -74,7 +74,7 @@ struct pt_directory* pt_create(void) {
     KASSERT(pt != NULL); // Assicura che la memoria sia stata allocata
 
     pt->size = SIZE_PT_OUTER;
-    pt->pages = kmalloc(sizeof(pt_outer_entry) * SIZE_PT_OUTER);
+    pt->pages = kmalloc(sizeof(struct pt_outer_entry) * SIZE_PT_OUTER);
     KASSERT(pt->pages != NULL); // Assicura che la memoria sia stata allocata
 
     // Inizializza tutte le entries della outer table come non valide
@@ -128,7 +128,7 @@ static void pt_define_inner(struct pt_directory* pt, vaddr_t va) {
 
     // Alloca memoria per la nuova inner table
     pt->pages[index].size = SIZE_PT_INNER;
-    pt->pages[index].pages = kmalloc(sizeof(pt_inner_entry) * SIZE_PT_INNER);
+    pt->pages[index].pages = kmalloc(sizeof(struct pt_inner_entry) * SIZE_PT_INNER);
     KASSERT(pt->pages[index] != NULL);
 
     // Inizializza tutte le entries della inner table come non valide

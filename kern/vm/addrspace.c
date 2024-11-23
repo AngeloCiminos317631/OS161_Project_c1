@@ -34,6 +34,8 @@
 #include <vm.h>
 #include <proc.h>
 #include <elf.h>
+// Aggiunta header file per la TLB
+#include <tlb.h>
 
 /*
  * Note! If OPT_DUMBVM is set, as is the case until you start the VM

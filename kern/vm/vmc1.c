@@ -68,8 +68,8 @@ void vm_fault(int fault_type, vaddr_t fault_addr)
     // Gestione dei diversi tipi di fault
     switch (fault_type) {
         case VM_FAULT_READONLY:
-            // Se la fault è su una pagina di sola lettura, restituiamo EFAULT
-            return EFAULT; // Restituisce un errore generico
+            // Se la fault è su una pagina di sola lettura, restituiamo EACCES
+            return EACCES; // Restituisce un errore di accesso per permessi mancanti (in questo caso in scrittura)
         case VM_FAULT_READ:
         case VM_FAULT_WRITE:
             break; // Se la fault è di lettura o scrittura, proseguiamo
@@ -101,39 +101,43 @@ void vm_fault(int fault_type, vaddr_t fault_addr)
 
     // Se non esiste, dobbiamo allocare un nuovo frame
     if(pa == PFN_NOT_USED) {
-        // TODO: Gestire l'allocazione di un nuovo frame per la pagina
-        // POSSIBILE MIGLIORAMENTO:
-        // Implementare la logica per allocare un nuovo frame fisico,
-        // mappando la pagina virtuale con un nuovo frame di memoria.
-        // Potrebbe essere necessario chiamare una funzione di allocazione
-        // della memoria fisica e aggiornare la TLB.
+        // Richiesta di un nuovo frame fisico alla Coremap
+        pa = page_alloc(faultaddress);
+
+        // Aggiornamento della pagetable, associando all'indirizzo virtuale il frame fisico appena allocato
+        KASSERT((pa & PAGE_FRAME) == pa);
+        pt_set_pa(as->pt, faultaddress, pa);
     }
+
+    // TODO: Implementazione delL' aggiornamento della TLB
+    // Aggiornare o modificare il codice momentaneamente commentato
+
     
-    // Se l'indirizzo fisico esiste, aggiorniamo la TLB
-    KASSERT((pa & PAGE_FRAME) == pa);  // Verifica che l'indirizzo fisico sia allineato alla pagina
 
-    // Disabilita le interruzioni per gestire la TLB in modo sicuro
-    spl = splhigh();
+    // // Disabilita le interruzioni per gestire la TLB in modo sicuro
+    // spl = splhigh();
 
-    // Cerca una voce libera nella TLB per scrivere la mappatura
-    for (i = 0; i < NUM_TLB; i++) {
-        tlb_read(&ehi, &elo, i); // Leggi la voce dalla TLB
-        if (elo & TLBLO_VALID) {
-            continue; // Se la voce è già valida, saltala
-        }
+    // // Cerca una voce libera nella TLB per scrivere la mappatura
+    // for (i = 0; i < NUM_TLB; i++) {
+    //     tlb_read(&ehi, &elo, i); // Leggi la voce dalla TLB
+    //     if (elo & TLBLO_VALID) {
+    //         continue; // Se la voce è già valida, saltala
+    //     }
         
-        // Se trovi una voce libera, aggiorna la TLB
-        ehi = fault_addr;  // Imposta l'indirizzo virtuale
-        elo = pa | TLBLO_DIRTY | TLBLO_VALID;  // Imposta l'indirizzo fisico, marcando la voce come valida e "sporca" (modificata)
-        DEBUG(DB_VM, "dumbvm: 0x%x -> 0x%x\n", fault_addr, pa); // Debug per tracciare la mappatura
-        tlb_write(ehi, elo, i);  // Scrivi la mappatura nella TLB
+    //     // Se trovi una voce libera, aggiorna la TLB
+    //     ehi = fault_addr;  // Imposta l'indirizzo virtuale
+    //     elo = pa | TLBLO_DIRTY | TLBLO_VALID;  // Imposta l'indirizzo fisico, marcando la voce come valida e "sporca" (modificata)
+    //     DEBUG(DB_VM, "dumbvm: 0x%x -> 0x%x\n", fault_addr, pa); // Debug per tracciare la mappatura
+    //     tlb_write(ehi, elo, i);  // Scrivi la mappatura nella TLB
 
-        splx(spl);  // Ripristina le interruzioni
-        return 0;  // La fault è stata gestita con successo
-    }
+    //     splx(spl);  // Ripristina le interruzioni
+    //     return 0;  // La fault è stata gestita con successo
+    // }
 
-    // Se non ci sono voci libere nella TLB, stampa un errore
-    kprintf("dumbvm: Ran out of TLB entries - cannot handle page fault\n");
-    splx(spl);  // Ripristina le interruzioni
+    // // Se non ci sono voci libere nella TLB, stampa un errore
+    // kprintf("dumbvm: Ran out of TLB entries - cannot handle page fault\n");
+    // splx(spl);  // Ripristina le interruzioni
+
+
     return EFAULT;  // Restituisci un errore
 }
