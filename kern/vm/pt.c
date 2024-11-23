@@ -30,7 +30,7 @@ static int get_outer_index(vaddr_t va) {
  * @return indice nella inner table
  */
 static int get_inner_index(vaddr_t va) {
-    return (va & P_IN_MASK) >> 10; // Usa i bit corrispondenti alla inner table
+    return (va & P_IN_MASK) >> 12; // Usa i bit corrispondenti alla inner table
     // si fa lo shift per portare i bit di interesse al fondo e usare il valore come indice
 }
 
