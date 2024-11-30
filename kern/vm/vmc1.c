@@ -116,12 +116,6 @@ int vm_fault(int fault_type, vaddr_t fault_addr)
         return EFAULT;
     }
     
-    new_page = -1;
-    seg = as_get_segment(as, fault_addr);
-    if (seg == NULL)
-    {
-        return EFAULT;
-    }
 
     // Ottieni l'address space del processo corrente
     as = proc_getas();
@@ -130,6 +124,13 @@ int vm_fault(int fault_type, vaddr_t fault_addr)
          * Se il processo non ha un address space (probabilmente errore kernel),
          * restituiamo EFAULT.
          */
+        return EFAULT;
+    }
+
+    new_page = -1;
+    seg = as_get_segment(as, fault_addr);
+    if (seg == NULL)
+    {
         return EFAULT;
     }
 
@@ -154,7 +155,7 @@ int vm_fault(int fault_type, vaddr_t fault_addr)
     // TODO: Implementazione delL' aggiornamento della TLB
     // Aggiornare o modificare il codice
     if(new_page == 1 && seg->p_permission != PF_S) {
-        result = seg_load_page(seg, faultaddress, pa); 
+        result = seg_load_page(seg, fault_addr, pa); 
         if (result)
             return EFAULT;
     }    
@@ -179,7 +180,7 @@ int vm_fault(int fault_type, vaddr_t fault_addr)
             }
 
             // Se l'entry non è valida, imposta ehi (indirizzo virtuale) con fault_addr (l'indirizzo che ha causato il page fault)
-            ehi = fault_addr;
+            ehi = pageallign_va;
 
             // Imposta elo con l'indirizzo fisico pa, segnando la pagina come dirty (potenzialmente modificata) e valida
             elo = pa | TLBLO_DIRTY | TLBLO_VALID;
@@ -200,7 +201,7 @@ int vm_fault(int fault_type, vaddr_t fault_addr)
         // Se non si è trovata alcuna entry libera (tutte le entry sono valide), bisogna scegliere una "vittima" per la sostituzione
 
         // Imposta ehi con fault_addr (l'indirizzo virtuale)
-        ehi = pageallign_va;
+        ehi = fault_addr;
 
         // Imposta elo con l'indirizzo fisico pa e i flag per marcarlo come dirty e valido
         elo = pa | TLBLO_DIRTY | TLBLO_VALID;

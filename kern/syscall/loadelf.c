@@ -60,93 +60,91 @@
 #include <vnode.h>
 #include <elf.h>
 
-// Commentata perchè implementazione appartenende alla vecchia gestione dela VM
-// Valutare gestione con opzioni
 
-// /*
-//  * Load a segment at virtual address VADDR. The segment in memory
-//  * extends from VADDR up to (but not including) VADDR+MEMSIZE. The
-//  * segment on disk is located at file offset OFFSET and has length
-//  * FILESIZE.
-//  *
-//  * FILESIZE may be less than MEMSIZE; if so the remaining portion of
-//  * the in-memory segment should be zero-filled.
-//  *
-//  * Note that uiomove will catch it if someone tries to load an
-//  * executable whose load address is in kernel space. If you should
-//  * change this code to not use uiomove, be sure to check for this case
-//  * explicitly.
-//  */
-// static
-// int
-// load_segment(struct addrspace *as, struct vnode *v,
-// 	     off_t offset, vaddr_t vaddr,
-// 	     size_t memsize, size_t filesize,
-// 	     int is_executable)
-// {
-// 	struct iovec iov;
-// 	struct uio u;
-// 	int result;
+/*
+ * Load a segment at virtual address VADDR. The segment in memory
+ * extends from VADDR up to (but not including) VADDR+MEMSIZE. The
+ * segment on disk is located at file offset OFFSET and has length
+ * FILESIZE.
+ *
+ * FILESIZE may be less than MEMSIZE; if so the remaining portion of
+ * the in-memory segment should be zero-filled.
+ *
+ * Note that uiomove will catch it if someone tries to load an
+ * executable whose load address is in kernel space. If you should
+ * change this code to not use uiomove, be sure to check for this case
+ * explicitly.
+ */
+static
+int
+load_segment(struct addrspace *as, struct vnode *v,
+	     off_t offset, vaddr_t vaddr,
+	     size_t memsize, size_t filesize,
+	     int is_executable)
+{
+	struct iovec iov;
+	struct uio u;
+	int result;
 
-// 	if (filesize > memsize) {
-// 		kprintf("ELF: warning: segment filesize > segment memsize\n");
-// 		filesize = memsize;
-// 	}
+	if (filesize > memsize) {
+		kprintf("ELF: warning: segment filesize > segment memsize\n");
+		filesize = memsize;
+	}
 
-// 	DEBUG(DB_EXEC, "ELF: Loading %lu bytes to 0x%lx\n",
-// 	      (unsigned long) filesize, (unsigned long) vaddr);
+	DEBUG(DB_EXEC, "ELF: Loading %lu bytes to 0x%lx\n",
+	      (unsigned long) filesize, (unsigned long) vaddr);
 
-// 	iov.iov_ubase = (userptr_t)vaddr;
-// 	iov.iov_len = memsize;		 // length of the memory space
-// 	u.uio_iov = &iov;
-// 	u.uio_iovcnt = 1;
-// 	u.uio_resid = filesize;          // amount to read from the file
-// 	u.uio_offset = offset;
-// 	u.uio_segflg = is_executable ? UIO_USERISPACE : UIO_USERSPACE;
-// 	u.uio_rw = UIO_READ;
-// 	u.uio_space = as;
+	iov.iov_ubase = (userptr_t)vaddr;
+	iov.iov_len = memsize;		 // length of the memory space
+	u.uio_iov = &iov;
+	u.uio_iovcnt = 1;
+	u.uio_resid = filesize;          // amount to read from the file
+	u.uio_offset = offset;
+	u.uio_segflg = is_executable ? UIO_USERISPACE : UIO_USERSPACE;
+	u.uio_rw = UIO_READ;
+	u.uio_space = as;
 
-// 	result = VOP_READ(v, &u);
-// 	if (result) {
-// 		return result;
-// 	}
+	result = VOP_READ(v, &u);
+	if (result) {
+		return result;
+	}
 
-// 	if (u.uio_resid != 0) {
-// 		/* short read; problem with executable? */
-// 		kprintf("ELF: short read on segment - file truncated?\n");
-// 		return ENOEXEC;
-// 	}
+	if (u.uio_resid != 0) {
+		/* short read; problem with executable? */
+		kprintf("ELF: short read on segment - file truncated?\n");
+		return ENOEXEC;
+	}
 
-// 	/*
-// 	 * If memsize > filesize, the remaining space should be
-// 	 * zero-filled. There is no need to do this explicitly,
-// 	 * because the VM system should provide pages that do not
-// 	 * contain other processes' data, i.e., are already zeroed.
-// 	 *
-// 	 * During development of your VM system, it may have bugs that
-// 	 * cause it to (maybe only sometimes) not provide zero-filled
-// 	 * pages, which can cause user programs to fail in strange
-// 	 * ways. Explicitly zeroing program BSS may help identify such
-// 	 * bugs, so the following disabled code is provided as a
-// 	 * diagnostic tool. Note that it must be disabled again before
-// 	 * you submit your code for grading.
-// 	 */
-// #if 0
-// 	{
-// 		size_t fillamt;
+	/*
+	 * If memsize > filesize, the remaining space should be
+	 * zero-filled. There is no need to do this explicitly,
+	 * because the VM system should provide pages that do not
+	 * contain other processes' data, i.e., are already zeroed.
+	 *
+	 * During development of your VM system, it may have bugs that
+	 * cause it to (maybe only sometimes) not provide zero-filled
+	 * pages, which can cause user programs to fail in strange
+	 * ways. Explicitly zeroing program BSS may help identify such
+	 * bugs, so the following disabled code is provided as a
+	 * diagnostic tool. Note that it must be disabled again before
+	 * you submit your code for grading.
+	 */
+#if 0
+	{
+		size_t fillamt;
 
-// 		fillamt = memsize - filesize;
-// 		if (fillamt > 0) {
-// 			DEBUG(DB_EXEC, "ELF: Zero-filling %lu more bytes\n",
-// 			      (unsigned long) fillamt);
-// 			u.uio_resid += fillamt;
-// 			result = uiomovezeros(fillamt, &u);
-// 		}
-// 	}
-// #endif
+		fillamt = memsize - filesize;
+		if (fillamt > 0) {
+			DEBUG(DB_EXEC, "ELF: Zero-filling %lu more bytes\n",
+			      (unsigned long) fillamt);
+			u.uio_resid += fillamt;
+			result = uiomovezeros(fillamt, &u);
+		}
+	}
+#endif
 
-// 	return result;
-// }
+	return result;
+}
 
 /*
  * Load an ELF executable user program into the current address space.
@@ -324,12 +322,12 @@ load_elf(struct vnode *v, vaddr_t *entrypoint)
 	// 	}
 	// }
 
-	// result = as_complete_load(as);
-	// if (result) {
-	// 	return result;
-	// }
+	result = as_complete_load(as);
+	if (result) {
+		return result;
+	}
 
-	//
+	
 
 	*entrypoint = eh.e_entry;
 

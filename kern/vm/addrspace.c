@@ -109,7 +109,7 @@ void as_destroy(struct addrspace* as) {
 	seg_destroy(as->code);
 	seg_destroy(as->data);
 	seg_destroy(as->stack);
-	vfs_close();
+	vfs_close(v); 
 
 	kfree(as);
 }

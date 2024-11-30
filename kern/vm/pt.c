@@ -89,7 +89,8 @@ struct pt_directory* pt_create(void) {
     return pt;
 }
 
-// VALUTARE CON SIMONE: commento + diversa implementazione -> IMPLICAZIONI CODICE
+// /**
+//  * Libera la memoria associata a una inner table.
 void pt_destroy_inner(struct pt_outer_entry pt_inner) {
 
     KASSERT(pt_inner.pages != NULL);
@@ -98,14 +99,6 @@ void pt_destroy_inner(struct pt_outer_entry pt_inner) {
     kfree(pt_inner.pages);
 }
 
-// /**
-//  * Libera la memoria associata a una inner table.
-//  * @param inner_pages: puntatore alla inner table
-//  */
-// void pt_destroy_inner(struct pt_inner_entry* inner_pages) {
-//     KASSERT(inner_pages != NULL); // Assicura che il puntatore sia valido
-//     kfree(inner_pages);
-// }
 
 /**
  * Libera tutta la memoria associata a una directory di pagine (outer table e inner tables).

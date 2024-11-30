@@ -61,8 +61,6 @@ void tlb_read(uint32_t *entryhi, uint32_t *entrylo, uint32_t index);
 int tlb_probe(uint32_t entryhi, uint32_t entrylo);
 
 
-int tlb_linear_search(vaddr_t va);
-
 /*
  * TLB entry fields.
  *
