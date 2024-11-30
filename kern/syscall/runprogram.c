@@ -90,8 +90,10 @@ runprogram(char *progname)
 		return result;
 	}
 
-	/* Done with the file now. */
-	vfs_close(v);
+	#if OPT_OLD
+		/* Done with the file now. */
+		vfs_close(v);
+	#endif
 
 	/* Define the user stack in the address space */
 	result = as_define_stack(as, &stackptr);

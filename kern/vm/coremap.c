@@ -17,6 +17,7 @@
 static struct coremap_entry *coremap = NULL; // Puntatore alla coremap
 static int nRamFrames = 0;                   // Numero di entry nella memoria fisica, aggiornato a runtime dalla funzione ram_getsize()
 static int coremapActive = 0;                // Flag per tenere traccia dell'attivazione della coremap
+static unsigned int current_victim;          // Victim scelta quando la corememory e' piena
 
 // Lock per la gestione della concorrenza nella coremap
 static struct spinlock freemem_lock = SPINLOCK_INITIALIZER;   
@@ -109,6 +110,7 @@ paddr_t page_alloc(vaddr_t vaddr) {
 static paddr_t getppage_user(vaddr_t va, struct addrspace *as) {
     int found = 0, pos;
     int i;
+    unsigned int victim;
     paddr_t pa;
     
     // Per proteggere l'accesso alla coremap
@@ -133,9 +135,14 @@ static paddr_t getppage_user(vaddr_t va, struct addrspace *as) {
         pa = ram_stealmem(1);
         spinlock_release(&stealmem_lock);
 
-        //Fa avvenire il crash del kernel, quando non c'è più memoria da "rubare" alla RAM
-        KASSERT(pa != 0);
-        pos = pa / PAGE_SIZE;
+        // Se non c'è memoria fisica disponibile dobbiamo scegliere una victim tramite Round Robin
+        if(pa == 0) {
+            victim = current_victim;
+            current_victim = (current_victim + 1) %  nRamFrames;
+            pos = victim 
+        } else { 
+            pos = pa / PAGE_SIZE;
+        }
     }
 
     // Per proteggere l'accesso alla coremap

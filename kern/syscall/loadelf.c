@@ -253,8 +253,8 @@ load_elf(struct vnode *v, vaddr_t *entrypoint)
 		
 		//print per debug
 		kprintf("%d) type: %d segment_offset: %x -- base_vaddr: %x -- file_size %x 
-		-- mem_size %d 0x%x\n", i, ph.p_type, ph.p_offset, ph.p_vaddr, 
-		ph.p_filesz, ph.p_memsz, ph.p_memsz);
+		-- mem_size %d 0x%x ---- perm: %d\n", i, ph.p_type, ph.p_offset, ph.p_vaddr, 
+		ph.p_filesz, ph.p_memsz, ph.p_memsz, ph.p_flags);
 
 		/*
 		result = as_define_region(as,
@@ -269,7 +269,7 @@ load_elf(struct vnode *v, vaddr_t *entrypoint)
 							ph.p_memsz, ph.p_filesz, 
 							ph.p_flags & PF_R, 
 							ph.p_flags & PF_W, 
-							ph.p_flags & PF_X, pos);
+							ph.p_flags & PF_X, pos, v);
 		pos += 1; 
 		if (result) {
 			return result;

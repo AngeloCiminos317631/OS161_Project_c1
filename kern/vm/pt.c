@@ -150,6 +150,7 @@ static void pt_define_inner(struct pt_directory* pt, vaddr_t va) {
     for (i = 0; i < pt->pages[index].size; i++) {
         pt->pages[index].pages[i].valid = 0;
         pt->pages[index].pages[i].pfn = PFN_NOT_USED;
+        pt->pages[index].pages[i].swapped_out = 0;
     }
 }
 

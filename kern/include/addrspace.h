@@ -134,10 +134,12 @@ int               as_define_region(struct addrspace *as,
                                 int readable,
                                 int writeable,
                                 int executable,
-                                int seg_n);
+                                int seg_n,
+                                struct vnode *v);
 int               as_prepare_load(struct addrspace *as);
 int               as_complete_load(struct addrspace *as);
 int               as_define_stack(struct addrspace *as, vaddr_t *initstackptr);
+struct segment*   as_get_segment(struct addrspace *as, vaddr_t va);
 
 
 /*
@@ -148,6 +150,10 @@ int               as_define_stack(struct addrspace *as, vaddr_t *initstackptr);
  */
 
 int load_elf(struct vnode *v, vaddr_t *entrypoint);
+int load_segment(struct addrspace *as, struct vnode *v,
+                        off_t offset, vaddr_t vaddr,
+                        size_t memsize, size_t filesize,
+                        int is_executable);
 
 
 #endif /* _ADDRSPACE_H_ */

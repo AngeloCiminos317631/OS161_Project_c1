@@ -9,6 +9,7 @@
 #include <mips/tlb.h>
 #include <addrspace.h>
 #include <vm.h>
+#include <elf.h>
 #include <coremap.h>
 #include <vmc1.h>
 
@@ -82,14 +83,17 @@ void vm_can_sleep(void) {
  */
 int vm_fault(int fault_type, vaddr_t fault_addr)
 {
-    int i, spl, found;
+    int i, spl, found, new_page, result;
     unsigned int victim;
     uint32_t ehi, elo;
     struct addrspace *as;
     paddr_t pa;
+    struct segment * seg;
+    vaddr_t pageallign_va;
 
     //TODO
-    fault_addr &= PAGE_FRAME; //Per eliminare l'offset e lavorare con l'indirizzo base della pagina
+    // fault_addr &= PAGE_FRAME; //Per eliminare l'offset e lavorare con l'indirizzo base della pagina
+    pageallign_va = fault_addr & PAGE_FRAME;
 
     // Gestione dei diversi tipi di fault
     switch (fault_type) {
@@ -111,6 +115,13 @@ int vm_fault(int fault_type, vaddr_t fault_addr)
          */
         return EFAULT;
     }
+    
+    new_page = -1;
+    seg = as_get_segment(as, fault_addr);
+    if (seg == NULL)
+    {
+        return EFAULT;
+    }
 
     // Ottieni l'address space del processo corrente
     as = proc_getas();
@@ -128,16 +139,25 @@ int vm_fault(int fault_type, vaddr_t fault_addr)
     // Se non esiste, dobbiamo allocare un nuovo frame
     if(pa == PFN_NOT_USED) {
         // Richiesta di un nuovo frame fisico alla Coremap
-        pa = page_alloc(fault_addr);
+        pa = page_alloc(pageallign_va);
 
         // Aggiornamento della pagetable, associando all'indirizzo virtuale il frame fisico appena allocato
         KASSERT((pa & PAGE_FRAME) == pa);
         pt_set_pa(as->pt, fault_addr, pa);
+        if (seg->p_permission == PF_S)
+        {
+            zero(PADDR_TO_KVADDR(pa), PAGE_SIZE);
+        }
+        new_page = 1;
     }
 
     // TODO: Implementazione delL' aggiornamento della TLB
     // Aggiornare o modificare il codice
-
+    if(new_page == 1 && seg->p_permission != PF_S) {
+        result = seg_load_page(seg, faultaddress, pa); 
+        if (result)
+            return EFAULT;
+    }    
 
     // Disabilita le interruzioni per gestire la TLB in modo sicuro
     spl = splhigh();
@@ -180,7 +200,7 @@ int vm_fault(int fault_type, vaddr_t fault_addr)
         // Se non si è trovata alcuna entry libera (tutte le entry sono valide), bisogna scegliere una "vittima" per la sostituzione
 
         // Imposta ehi con fault_addr (l'indirizzo virtuale)
-        ehi = fault_addr;
+        ehi = pageallign_va;
 
         // Imposta elo con l'indirizzo fisico pa e i flag per marcarlo come dirty e valido
         elo = pa | TLBLO_DIRTY | TLBLO_VALID;

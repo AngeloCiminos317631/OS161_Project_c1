@@ -17,8 +17,9 @@
  * Entry della inner table (livello 2).
  */
 struct pt_inner_entry {
-    unsigned int valid;   // Indica se la pagina è valida (1: valida, 0: non valida)
-    paddr_t pfn;          // Physical Frame Number (numero di frame fisico)
+    unsigned int valid;             // Indica se la pagina è valida (1: valida, 0: non valida)
+    paddr_t pfn;                    // Physical Frame Number (numero di frame fisico)
+    unsigned int swapped_out;       // 
 };
 
 /**
