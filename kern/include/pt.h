@@ -62,9 +62,9 @@ void pt_destroy(struct pt_directory* pt);
  */
 void pt_define_inner(struct pt_directory* pt, vaddr_t va);
 
-// /**
-//  * Distrugge una inner table e libera la memoria associata.
-
+/**
+  * Distrugge una inner table e libera la memoria associata.
+  */
 void pt_destroy_inner(struct pt_outer_entry pt_inner);
 
 
@@ -85,6 +85,25 @@ paddr_t pt_get_pa(struct pt_directory* pt, vaddr_t va);
  * @param pa Indirizzo fisico corrispondente.
  */
 void pt_set_pa(struct pt_directory* pt, vaddr_t va, paddr_t pa);
+
+/**
+ * Recupera lo stato di una pagina in una page table.
+ * Controlla se la pagina è swappata su disco, valida o non valida.
+ *
+ * @param pt La page table in cui cercare.
+ * @param va L'indirizzo virtuale della pagina.
+ * @return 0 se la pagina è in memoria, 1 se è swappata, 2 se non è valida.
+ */
+unsigned int pt_get_state(struct pt_directory* pt, vaddr_t va);
+/**
+ * Imposta lo stato di una pagina in una page table.
+ * Permette di aggiornare il campo swapped_out per indicare se la pagina è swappata o meno.
+ *
+ * @param pt La page table in cui aggiornare lo stato.
+ * @param va L'indirizzo virtuale della pagina.
+ * @param state Il nuovo stato: 0 per in memoria, 1 per swappata.
+ */
+void pt_set_state(struct pt_directory* pt, vaddr_t va, unsigned int state);
 
 /**
  * Invalida tutte le mappature in un contesto di page table.

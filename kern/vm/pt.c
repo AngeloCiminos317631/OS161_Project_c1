@@ -89,8 +89,9 @@ struct pt_directory* pt_create(void) {
     return pt;
 }
 
-// /**
-//  * Libera la memoria associata a una inner table.
+/**
+  * Libera la memoria associata a una inner table.
+  */ 
 void pt_destroy_inner(struct pt_outer_entry pt_inner) {
 
     KASSERT(pt_inner.pages != NULL);
@@ -203,4 +204,82 @@ void pt_set_pa(struct pt_directory* pt, vaddr_t va, paddr_t pa) {
     KASSERT(pt->pages[outer].valid == 1);
     pt->pages[outer].pages[inner].valid = 1;
     pt->pages[outer].pages[inner].pfn = pa;
+}
+
+/**
+ * Recupera lo stato di una pagina in una page table.
+ * Controlla se la pagina è swappata su disco, valida o non valida.
+ *
+ * @param pt La page table in cui cercare.
+ * @param va L'indirizzo virtuale della pagina.
+ * @return 0 se la pagina è in memoria, 1 se è swappata, 2 se non è valida.
+ */
+unsigned int pt_get_state(struct pt_directory* pt, vaddr_t va) {
+    unsigned int outer, inner, d;
+    unsigned int flag;
+
+    // Estrai l'indice della outer table
+    outer = get_outer_index(va);
+    KASSERT(outer < SIZE_PT_OUTER); // Verifica che l'indice sia valido
+
+    // Estrai l'indice della inner table
+    inner = get_inner_index(va);
+    KASSERT(inner < SIZE_PT_INNER); // Verifica che l'indice sia valido
+
+    // Estrai l'offset nella pagina
+    d = get_page_offset(va);
+    KASSERT(d < PAGE_SIZE); // Verifica che l'offset sia valido
+
+    // Controlla se la outer table è valida
+    if (pt->pages[outer].valid) {
+        // Controlla se la inner table è valida
+        if (pt->pages[outer].pages[inner].valid) {
+            // Recupera il valore del campo swapped_out
+            flag = pt->pages[outer].pages[inner].swapped_out;
+        } else {
+            return 2; // Pagina non valida
+        }
+    } else {
+        return 2; // Outer table non valida
+    }
+
+    return flag; // Restituisci lo stato della pagina
+}
+
+/**
+ * Imposta lo stato di una pagina in una page table.
+ * Permette di aggiornare il campo swapped_out per indicare se la pagina è swappata o meno.
+ *
+ * @param pt La page table in cui aggiornare lo stato.
+ * @param va L'indirizzo virtuale della pagina.
+ * @param state Il nuovo stato: 0 per in memoria, 1 per swappata.
+ */
+void pt_set_state(struct pt_directory* pt, vaddr_t va, unsigned int state) {
+    unsigned int outer, inner, d;
+
+    // Estrai l'indice della outer table
+    outer = get_outer_index(va);
+    KASSERT(outer < SIZE_PT_OUTER); // Verifica che l'indice sia valido
+
+    // Estrai l'indice della inner table
+    inner = get_inner_index(va);
+    KASSERT(inner < SIZE_PT_INNER); // Verifica che l'indice sia valido
+
+    // Estrai l'offset nella pagina
+    d = get_page_offset(va);
+    KASSERT(d < PAGE_SIZE); // Verifica che l'offset sia valido
+
+    // Commentato perché si assume che le inner table siano già create e valide.
+    // if(!pt->pages[p1].valid) {
+    //     pt_define_inner(pt, va);
+    // }
+
+    // Assicurati che la outer table sia valida
+    KASSERT(pt->pages[inner].valid == 1);
+
+    // Marca la pagina come valida
+    pt->pages[inner].pages[outer].valid = 1;
+
+    // Aggiorna il campo swapped_out con il nuovo stato
+    pt->pages[inner].pages[outer].swapped_out = state;
 }

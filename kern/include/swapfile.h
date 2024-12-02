@@ -9,10 +9,10 @@
 
 struct swap_page {
     // Inizializzazione della swap page
-    paddr_t ppadd = NULL;
-    vaddr_t pvadd = NULL;       // Usato per lo swap in
-    off_t swap_offset = NULL;
-    int free = 1;               // 1: libera, 0: occupata
+    paddr_t ppadd;
+    vaddr_t pvadd;       // Usato per lo swap in
+    off_t swap_offset ;
+    int free;               // 1: libera, 0: occupata
 
 
 };
@@ -20,5 +20,6 @@ struct swap_page {
 void swapfile_init(void);
 int swap_out(paddr_t ppaddr);
 int swap_in(paddr_t ppadd, vaddr_t pvadd);
+void swap_shutdown(void);
 
 #endif

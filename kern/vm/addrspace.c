@@ -38,6 +38,7 @@
 #include <vfs.h>
 // Aggiunta header file per la TLB
 #include <mips/tlb.h>
+#include <swapfile.h>
 
 /*
  * Note! If OPT_DUMBVM is set, as is the case until you start the VM
@@ -64,6 +65,7 @@ struct addrspace* as_create(void) {
 	as->data = seg_create();
 	as->stack = seg_create();
 	as->pt = pt_create(); // Creazione della page table
+	swapfile_init();
     return as;
 }
 
@@ -110,7 +112,7 @@ void as_destroy(struct addrspace* as) {
 	seg_destroy(as->data);
 	seg_destroy(as->stack);
 	vfs_close(v); 
-
+	swap_shutdown();
 	kfree(as);
 }
 

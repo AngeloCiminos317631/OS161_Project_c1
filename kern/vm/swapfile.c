@@ -20,7 +20,17 @@ static struct spinlock filelock = SPINLOCK_INITIALIZER;
 static struct vnode *v = NULL;
 
 void swapfile_init(void) {
-    int result;
+    int result,i;
+
+    // Inizializziamo la bitmap
+    for(i=0; i<NUM_PAGES; i++)
+    {
+        swap_list[i].ppadd = 0;
+        swap_list[i].pvadd = 0;
+        swap_list[i].swap_offset = 0;
+        swap_list[i].free = 1;
+
+    }
 
     // Quando a runtime sono necessari più di 9MB => panic
     result = vfs_open((char *)"./SWAPFILE", O_RDWR | O_CREAT , 777, &v);
@@ -37,7 +47,7 @@ int swap_out(paddr_t ppaddr) {
     int free_index = -1;
     
     struct iovec iov;
-    struct uiov u;
+    struct uio u;
     int i;
     struct swap_page *entry;
     off_t page_offset;
@@ -76,6 +86,7 @@ int swap_in(paddr_t ppadd, vaddr_t pvadd) {
     int i;
     int page_index;
     off_t new_offset;
+    int result;
 
 
     page_index = -1;
@@ -91,17 +102,19 @@ int swap_in(paddr_t ppadd, vaddr_t pvadd) {
 
     spinlock_acquire(&filelock);
     // Fix del descriptor dello swapfile
-    swap_list[page_index].ppadd =  NULL;
-    swap_list[page_index].vadd  = NULL;
+    swap_list[page_index].ppadd =  0;
+    swap_list[page_index].pvadd  = 0;
     swap_list[page_index].free  = 1;
+    swap_list[page_index].swap_offset = 0;
     // Copia nel suo nuovo ppadd
 
     uio_kinit(&iov, &u, (void *) PADDR_TO_KVADDR(ppadd), PAGE_SIZE, new_offset, UIO_READ);
-    VOP(v, &u);
-    KASSERT(u.uio_resid ! = 0);
+    result = VOP_READ(v, &u); // Legge una pagina dal file di swap nella memoria fisica specificata da ppadd.
+    KASSERT(result == 0);     // Verifica che la lettura dal file di swap sia avvenuta con successo; genera un panic in caso di errore.
 
+    KASSERT(u.uio_resid != 0); // Verifica che la lettura della pagina dal file di swap non abbia lasciato byte residui, garantendo la correttezza dei dati trasferiti.
     spinlock_release(&filelock);
-
+    
     return 0;
 }
 

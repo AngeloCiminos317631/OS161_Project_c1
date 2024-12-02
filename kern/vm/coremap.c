@@ -12,6 +12,7 @@
 
 #include <coremap.h>
 #include <vmc1.h>
+#include <swapfile.h>
 
 // Modulo Coremap per la gestione e il tracking della memoria fisica
 static struct coremap_entry *coremap = NULL; // Puntatore alla coremap
@@ -112,6 +113,9 @@ static paddr_t getppage_user(vaddr_t va, struct addrspace *as) {
     int i;
     unsigned int victim;
     paddr_t pa;
+    vaddr_t victim_va; // Indirizzo virtuale della vittima
+    paddr_t victim_pa; // Indirizzo fisico della vittima
+    int result_swap_out; // Risultato della funzione swap_out
     
     // Per proteggere l'accesso alla coremap
     spinlock_acquire(&freemem_lock);
@@ -139,8 +143,15 @@ static paddr_t getppage_user(vaddr_t va, struct addrspace *as) {
         if(pa == 0) {
             victim = current_victim;
             current_victim = (current_victim + 1) %  nRamFrames;
-            pos = victim 
-        } else { 
+            pos = victim;
+            // Qui dovremmo chiamare la funzione swap_out per scrivere la pagina vittima su swap
+            victim_pa = pos * PAGE_SIZE; // Calcoliamo l'indirizzo fisico della vittima
+            victim_va = coremap[pos].vaddr; // Recuperiamo l'indirizzo virtuale della vittima
+            result_swap_out = swap_out(victim_pa);
+            KASSERT(result_swap_out == 0);
+            pt_set_state(as->pt, victim_va, 1); // Aggiorniamo lo stato della pagina nel page table per segnare la vittima come "swapped out"
+            pa = victim_pa  // Impostiamo l'indirizzo fisico della vittima come la pagina da restituire
+        } else {  
             pos = pa / PAGE_SIZE;
         }
     }

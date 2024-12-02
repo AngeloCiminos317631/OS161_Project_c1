@@ -395,6 +395,7 @@ optfile c1-pag vm/addrspace.c # modulo per gestione addrespace
 optfile c1-pag vm/segments.c # modulo per la gestione dei segments
 optfile c1-pag vm/pt.c # modulo per la gestione della page table
 optfile c1-pag vm/vmc1.c # modulo per la gestione della VM
+optfile c1-pag vm/swapfile.c #modulo per la gestione dello swapfile
 
 ########################################
 #                                      #

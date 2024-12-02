@@ -12,6 +12,7 @@
 #include <elf.h>
 #include <coremap.h>
 #include <vmc1.h>
+#include <swapfile.h>
 
 // Variabile globale statica che tiene traccia dell'indice della prossima vittima TLB
 static unsigned int current_victim;
@@ -90,6 +91,8 @@ int vm_fault(int fault_type, vaddr_t fault_addr)
     paddr_t pa;
     struct segment * seg;
     vaddr_t pageallign_va;
+    unsigned int swapped_out; // Flag per indicare se la pagina è stata swappata
+    int result_swap_in; // Risultato della funzione swap_in
 
     //TODO
     // fault_addr &= PAGE_FRAME; //Per eliminare l'offset e lavorare con l'indirizzo base della pagina
@@ -136,6 +139,8 @@ int vm_fault(int fault_type, vaddr_t fault_addr)
 
     // Cerchiamo l'indirizzo fisico corrispondente nel page table
     pa = pt_get_pa(as->pt, fault_addr);
+    // Verifichiamo se la pagina è stata swappata
+    swapped_out = pt_get_state(as->pt, fault_addr);
 
     // Se non esiste, dobbiamo allocare un nuovo frame
     if(pa == PFN_NOT_USED) {
@@ -145,12 +150,31 @@ int vm_fault(int fault_type, vaddr_t fault_addr)
         // Aggiornamento della pagetable, associando all'indirizzo virtuale il frame fisico appena allocato
         KASSERT((pa & PAGE_FRAME) == pa);
         pt_set_pa(as->pt, fault_addr, pa);
-        if (seg->p_permission == PF_S)
-        {
-            zero(PADDR_TO_KVADDR(pa), PAGE_SIZE);
+        if (seg->p_permission == PF_S) // Se il fault si verifica nel segmento dello stack, dobbiamo azzerare la pagina
+        {   
+            // In C, le variabili non inizializzate non sono garantite ad avere un valore specifico.
+            // Pertanto, se una nuova pagina non viene azzerata prima di essere utilizzata, potrebbe contenere
+            // dati arbitrari che potrebbero causare un comportamento imprevisto del programma.
+            // Azzerando la pagina, garantiamo che sia inizializzata con uno stato noto di tutti zeri.
+
+            bzero((void *)PADDR_TO_KVADDR(pa), PAGE_SIZE); // Azzeriamo la pagina alla sua indirizzo fisico
         }
         new_page = 1;
     }
+    else if(swapped_out) {
+
+        // Se la pagina è stata "swappata fuori", la carichiamo dalla swap
+        pa = page_alloc(pageallign_va);  // Alloca una pagina fisica
+
+        // Carica la pagina dal file di swap
+        result_swap_in = swap_in(pa, pageallign_va);
+
+        KASSERT(result_swap_in == 0);  // Verifica che il caricamento sia riuscito
+
+        // Aggiorna lo stato della pagina nella page table
+        pt_set_state(as->pt, pageallign_va, 0);
+    }
+
 
     // TODO: Implementazione delL' aggiornamento della TLB
     // Aggiornare o modificare il codice
@@ -200,8 +224,8 @@ int vm_fault(int fault_type, vaddr_t fault_addr)
 
         // Se non si è trovata alcuna entry libera (tutte le entry sono valide), bisogna scegliere una "vittima" per la sostituzione
 
-        // Imposta ehi con fault_addr (l'indirizzo virtuale)
-        ehi = fault_addr;
+        // Imposta ehi con l'indirizzo virtuale fault_addr
+        ehi = pageallign_va;
 
         // Imposta elo con l'indirizzo fisico pa e i flag per marcarlo come dirty e valido
         elo = pa | TLBLO_DIRTY | TLBLO_VALID;
