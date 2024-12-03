@@ -45,6 +45,7 @@ static unsigned int tlb_get_rr_victim(void) {
 void vm_bootstrap(void) {
     coremap_init();
     current_victim = 0; // È inizializzata a 0 e mantiene il suo valore tra le chiamate alla funzione.
+    swapfile_init();
 }
 
 /* 
@@ -52,6 +53,7 @@ void vm_bootstrap(void) {
  * allocate per la coremap.
  */
 void vm_shutdown(void) {
+    swap_shutdown();
     coremap_shutdown();
 }
 
@@ -84,7 +86,7 @@ void vm_can_sleep(void) {
  */
 int vm_fault(int fault_type, vaddr_t fault_addr)
 {
-    int i, spl, found, new_page, result;
+    int spl, new_page, result; //i, found
     unsigned int victim;
     uint32_t ehi, elo;
     struct addrspace *as;
@@ -187,66 +189,46 @@ int vm_fault(int fault_type, vaddr_t fault_addr)
     // Disabilita le interruzioni per gestire la TLB in modo sicuro
     spl = splhigh();
 
-    // Cerca se l'indirizzo virtuale fault_addr è già presente nella TLB
-    found = tlb_probe(fault_addr, 0);
-    if (found < 0) {
-        // Se l'indirizzo non è trovato nella TLB (found < 0), bisogna cercare una posizione libera per la traduzione
+    // TODO review della tlb function
+    // found = tlb_probe(faultaddress, 0);
+    // if(found < 0) { // Non trovato
+    //     for (i=0; i<NUM_TLB; i++) {
+    //         tlb_read(&ehi, &elo, i);
+    //         if (elo & TLBLO_VALID) {
+    //             continue;
+    //         }
+    //         ehi = pageallign_va;
+    //         elo = pa | TLBLO_DIRTY | TLBLO_VALID;
+    //         DEBUG(DB_VM, "dumbvm: 0x%x -> 0x%x\n", faultaddress, pa);
+    //         tlb_write(ehi, elo, i);
+    //         splx(spl);
+    //         return 0;
+    //     }
+    //     // Scelta della vittima
 
-        // Itera su tutte le entry della TLB
-        for (i = 0; i < NUM_TLB; i++) {
-            // Legge la coppia (ehi, elo) dall'entry i della TLB
-            tlb_read(&ehi, &elo, i);
+    //     ehi = faultaddress;
+    //     elo = pa | TLBLO_DIRTY | TLBLO_VALID;
+    //     victim = tlb_get_rr_victim();
+    //     tlb_write(ehi, elo, victim);
+    //     return 0;
+    // }
 
-            // Verifica se l'entry è valida (se contiene una traduzione)
-            if (elo & TLBLO_VALID) {
-                // Se l'entry è valida, salta questa entry e prova con la successiva
-                continue;
-            }
+    victim = tlb_get_rr_victim();
 
-            // Se l'entry non è valida, imposta ehi (indirizzo virtuale) con fault_addr (l'indirizzo che ha causato il page fault)
-            ehi = pageallign_va;
+    ehi = pageallign_va;
+    elo = pa | TLBLO_VALID;
 
-            // Imposta elo con l'indirizzo fisico pa, segnando la pagina come dirty (potenzialmente modificata) e valida
-            elo = pa | TLBLO_DIRTY | TLBLO_VALID;
-
-            // Stampa un messaggio di debug che mostra la traduzione dall'indirizzo virtuale a quello fisico
-            DEBUG(DB_VM, "dumbvm: 0x%x -> 0x%x\n", fault_addr, pa);
-
-            // Scrive i valori ehi e elo nella TLB all'indice i
-            tlb_write(ehi, elo, i);
-
-            // Ripristina il livello di interruzione (sblocca il livello di interruzione precedente)
-            splx(spl);
-
-            // Restituisce 0 indicando che il page fault è stato gestito correttamente
-            return 0;
-        }
-
-        // Se non si è trovata alcuna entry libera (tutte le entry sono valide), bisogna scegliere una "vittima" per la sostituzione
-
-        // Imposta ehi con l'indirizzo virtuale fault_addr
-        ehi = pageallign_va;
-
-        // Imposta elo con l'indirizzo fisico pa e i flag per marcarlo come dirty e valido
-        elo = pa | TLBLO_DIRTY | TLBLO_VALID;
-
-        // Sceglie una "vittima" dalla TLB utilizzando la politica Round-Robin (funzione tlb_get_rr_victim)
-        victim = tlb_get_rr_victim();
-
-        // Sostituisce l'entry della TLB alla posizione della vittima con la nuova traduzione
-        tlb_write(ehi, elo, victim);
-
-        // Restituisce 0 indicando che la gestione del page fault è stata completata correttamente
-        return 0;
+    if (seg->p_permission == (PF_R | PF_W) || seg->p_permission == PF_S)
+    {
+        elo = elo | TLBLO_DIRTY;
     }
 
+    tlb_write(ehi, elo, victim);
 
-    // Se non ci sono voci libere nella TLB, stampa un errore
-    kprintf("dumbvm: Ran out of TLB entries - cannot handle page fault\n");
     splx(spl);  // Ripristina le interruzioni
 
 
-    return EFAULT;  // Restituisci un errore
+    return 0;  // Restituisci un errore
 }
 
     //TODO - Per il momento solo una copia di quello che veniva fatto con DUMBVM

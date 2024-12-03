@@ -33,7 +33,7 @@ void swapfile_init(void) {
     }
 
     // Quando a runtime sono necessari più di 9MB => panic
-    result = vfs_open((char *)"./SWAPFILE", O_RDWR | O_CREAT , 777, &v);
+    result = vfs_open((char *)"emu0:/SWAPFILE", O_RDWR | O_CREAT , 0, &v);
     KASSERT(result == 0);
     return;
 
