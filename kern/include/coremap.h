@@ -51,9 +51,10 @@ void coremap_shutdown(void);
  * Alloca una pagina fisica per un indirizzo virtuale specificato (vaddr),
  * restituendo il relativo indirizzo fisico.
  * @param vaddr Indirizzo virtuale per cui viene richiesta la pagina fisica
+ * @param state Parametro per tracciare lo stato della pagina da allocare
  * @return L'indirizzo fisico della pagina assegnata, o 0 in caso di errore.
  */
-paddr_t page_alloc(vaddr_t vaddr);
+paddr_t page_alloc(vaddr_t vaddr, int state);
 
 /**
  * Libera una pagina fisica, rendendola disponibile per nuove allocazioni.

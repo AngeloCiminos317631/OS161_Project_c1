@@ -86,7 +86,7 @@ void vm_can_sleep(void) {
  */
 int vm_fault(int fault_type, vaddr_t fault_addr)
 {
-    int spl, new_page, result; //i, found
+    int spl, new_page, result, new_state = -1; //i, found
     unsigned int victim;
     uint32_t ehi, elo;
     struct addrspace *as;
@@ -139,6 +139,12 @@ int vm_fault(int fault_type, vaddr_t fault_addr)
         return EFAULT;
     }
 
+    // Determina lo stato da assegnare all'entry TLB in base ai permessi della sezione di memoria.
+    // Se il segmento ha permessi di lettura e scrittura (PF_R | PF_W) o un permesso speciale (PF_S), allora abilita il bit TLBLO_DIRTY per consentire l'accesso in scrittura.
+    if (seg->p_permission == (PF_R | PF_W) || seg->p_permission == PF_S) {
+        new_state = TLBLO_DIRTY; // La pagina sarà scrivibile (lettura e scrittura consentite).
+    }
+
     // Cerchiamo l'indirizzo fisico corrispondente nel page table
     pa = pt_get_pa(as->pt, fault_addr);
     // Verifichiamo se la pagina è stata swappata
@@ -147,7 +153,7 @@ int vm_fault(int fault_type, vaddr_t fault_addr)
     // Se non esiste, dobbiamo allocare un nuovo frame
     if(pa == PFN_NOT_USED) {
         // Richiesta di un nuovo frame fisico alla Coremap
-        pa = page_alloc(pageallign_va);
+        pa = page_alloc(pageallign_va, new_state);
 
         // Aggiornamento della pagetable, associando all'indirizzo virtuale il frame fisico appena allocato
         KASSERT((pa & PAGE_FRAME) == pa);
@@ -166,7 +172,7 @@ int vm_fault(int fault_type, vaddr_t fault_addr)
     else if(swapped_out) {
 
         // Se la pagina è stata "swappata fuori", la carichiamo dalla swap
-        pa = page_alloc(pageallign_va);  // Alloca una pagina fisica
+        pa = page_alloc(pageallign_va, new_state);  // Alloca una pagina fisica
 
         // Carica la pagina dal file di swap
         result_swap_in = swap_in(pa, pageallign_va);

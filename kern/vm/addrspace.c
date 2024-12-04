@@ -36,9 +36,15 @@
 #include <proc.h>
 #include <elf.h>
 #include <vfs.h>
-// Aggiunta header file per la TLB
 #include <mips/tlb.h>
 #include <swapfile.h>
+
+// Aggiunta header file per la Coremap
+#include <coremap.h>
+// Aggiunta header file per la TLB
+#include <vm_tlb.h>
+// Aggiunta header file per la gestione della VM
+#include <vmc1.h>
 
 /*
  * Note! If OPT_DUMBVM is set, as is the case until you start the VM

@@ -93,7 +93,7 @@ vaddr_t alloc_kpages(unsigned long npages) {
 }
 
 // Alloca una pagina di memoria per l'indirizzo virtuale dato (per user )
-paddr_t page_alloc(vaddr_t vaddr) {
+paddr_t page_alloc(vaddr_t vaddr, int state) {
     paddr_t pa;
     struct addrspace *as_cur;
 
@@ -103,13 +103,13 @@ paddr_t page_alloc(vaddr_t vaddr) {
     as_cur = proc_getas();
     KASSERT(as_cur != NULL)
 
-    pa = getppage_user(vaddr, as_cur);  // Richiede una pagina fisica
+    pa = getppage_user(vaddr, as_cur, state);  // Richiede una pagina fisica
     return pa;
 }
 
 // Funzione helper per assegnare pagina utente ad un frame della coremap
-static paddr_t getppage_user(vaddr_t va, struct addrspace *as) {
-    int found = 0, pos;
+static paddr_t getppage_user(vaddr_t va, struct addrspace *as, int state) {
+    volatile int found = 0, pos;
     int i;
     unsigned int victim;
     paddr_t pa;
@@ -150,7 +150,9 @@ static paddr_t getppage_user(vaddr_t va, struct addrspace *as) {
             result_swap_out = swap_out(victim_pa);
             KASSERT(result_swap_out == 0);
             pt_set_state(as->pt, victim_va, 1); // Aggiorniamo lo stato della pagina nel page table per segnare la vittima come "swapped out"
+            tlb_check_victim_pa(pa, va, state); // Verifica e aggiorna le voci del TLB associate a un indirizzo fisico vittima, con il nuovo VA. ( CONTROLLARE pa mi sembra errato )
             pa = victim_pa  // Impostiamo l'indirizzo fisico della vittima come la pagina da restituire
+            kprintf("SWAPPING line 276: (victim_pa: 0x%x victim_va: 0x%x)\n", victim_pa, victim_va); // Print per debug
         } else {  
             pos = pa / PAGE_SIZE;
         }
