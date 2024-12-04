@@ -8,6 +8,7 @@
 #include <current.h>
 #include <mips/tlb.h>
 #include <vm.h>
+#include <coremap.h> // include header per modulo Coremap
 
 #include <pt.h>
 #include <vmc1.h>
@@ -43,25 +44,6 @@ static int get_page_offset(vaddr_t va) {
     return va & D_MASK; // Usa i bit meno significativi (offset)
 }
 
-// Commentato perchè probabilmente non sarà utilizzato ( valutare )
-// /**
-//  * Calcola il numero di pagine necessarie per un segmento di memoria.
-//  * @param memsize: dimensione in byte del segmento
-//  * @param va: indirizzo virtuale di partenza del segmento
-//  * @return numero di pagine necessarie
-//  */
-// static unsigned int get_npages(uint32_t memsize, vaddr_t va) {
-//     unsigned int npages;
-
-//     // Calcola il numero totale di byte, considerando l'offset iniziale
-//     npages = memsize + (va & ~PAGE_FRAME);
-
-//     // Arrotonda il numero di byte al multiplo di PAGE_SIZE più vicino
-//     npages = ((npages + PAGE_SIZE - 1) & PAGE_FRAME) / PAGE_SIZE;
-
-//     return npages;
-// }
-
 /* Gestione della struttura della page table */
 
 /**
@@ -90,13 +72,29 @@ struct pt_directory* pt_create(void) {
 }
 
 /**
-  * Libera la memoria associata a una inner table.
-  */ 
+ * Libera la memoria associata a una tabella interna (inner table) della paginazione.
+ * 
+ * @param pt_inner Una struttura rappresentante una entry di livello superiore che punta
+ *                 a una inner table.
+ */
 void pt_destroy_inner(struct pt_outer_entry pt_inner) {
+
+    unsigned int i; // Variabile per l'indice del ciclo for
 
     KASSERT(pt_inner.pages != NULL);
     KASSERT(pt_inner.size != 0);
     KASSERT(pt_inner.valid != 0);
+
+    // Itera su tutte le pagine della tabella interna
+    for (i = 0; i < pt_inner.size; i++) {
+        // Verifica se l'entry corrente è valida e che la pagina non sia stata "swappata"
+        if (pt_inner.pages[i].valid && pt_inner.pages[i].swapped_out != 1) {
+            // Libera il frame fisico associato all'indice di pagina (PFN - Page Frame Number)
+            page_free(pt_inner.pages[i].pfn);
+        }
+    }
+
+    // Libera la memoria allocata per l'array delle pagine nella tabella interna
     kfree(pt_inner.pages);
 }
 
