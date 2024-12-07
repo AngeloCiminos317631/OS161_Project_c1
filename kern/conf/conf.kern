@@ -474,7 +474,7 @@ optfile hello main/hello.c
 defoption synch
 # lab2
 defoption syscalls
-optfile syscalls syscall/proc_syscalls.c
+optfile syscalls syscall/proc_syscalls.c  # Controllare utilizzo options syscalls aggiunta anche configurazione per RUN
 optfile syscalls syscall/file_syscalls.c
 # lab4
 defoption waitpid
