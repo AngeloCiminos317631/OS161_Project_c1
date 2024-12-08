@@ -19,7 +19,8 @@
 struct pt_inner_entry {
     unsigned int valid;             // Indica se la pagina è valida (1: valida, 0: non valida)
     paddr_t pfn;                    // Physical Frame Number (numero di frame fisico)
-    unsigned int swapped_out;       // 
+    off_t swapped_out;              // off_t è un tipo di dato che rappresenta un offset in un file
+                                    // Indica l'offset nel file di swap in cui è stata salvata la pagina
 };
 
 /**
@@ -75,7 +76,7 @@ void pt_destroy_inner(struct pt_outer_entry pt_inner);
  * @param va Indirizzo virtuale da tradurre.
  * @return Indirizzo fisico corrispondente o PFN_NOT_USED se la mappatura non è valida.
  */
-paddr_t pt_get_pa(struct pt_directory* pt, vaddr_t va);
+int pt_get_pa(struct pt_directory* pt, vaddr_t va);
 
 /**
  * Imposta una mappatura tra un indirizzo virtuale e un indirizzo fisico.
@@ -92,9 +93,8 @@ void pt_set_pa(struct pt_directory* pt, vaddr_t va, paddr_t pa);
  *
  * @param pt La page table in cui cercare.
  * @param va L'indirizzo virtuale della pagina.
- * @return 0 se la pagina è in memoria, 1 se è swappata, 2 se non è valida.
  */
-unsigned int pt_get_state(struct pt_directory* pt, vaddr_t va);
+off_t pt_get_state(struct pt_directory* pt, vaddr_t va);
 /**
  * Imposta lo stato di una pagina in una page table.
  * Permette di aggiornare il campo swapped_out per indicare se la pagina è swappata o meno.
@@ -103,7 +103,7 @@ unsigned int pt_get_state(struct pt_directory* pt, vaddr_t va);
  * @param va L'indirizzo virtuale della pagina.
  * @param state Il nuovo stato: 0 per in memoria, 1 per swappata.
  */
-void pt_set_state(struct pt_directory* pt, vaddr_t va, unsigned int state);
+void pt_set_state(struct pt_directory* pt, vaddr_t va, off_t state, paddr_t pa); //Non sono sicuro che off_t sia il tipo giusto per state
 
 /**
  * Invalida tutte le mappature in un contesto di page table.

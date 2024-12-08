@@ -13,4 +13,5 @@
  
 int tlb_check_victim_pa(paddr_t pa_victim, vaddr_t new_va, int state);
 
+int tlb_remove_by_va(vaddr_t va);
 #endif

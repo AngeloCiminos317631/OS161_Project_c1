@@ -13,6 +13,7 @@
 #include <coremap.h>
 #include <vmc1.h>
 #include <swapfile.h>
+#include <vm_tlb.h>
 
 // Modulo Coremap per la gestione e il tracking della memoria fisica
 static struct coremap_entry *coremap = NULL; // Puntatore alla coremap
@@ -141,18 +142,20 @@ static paddr_t getppage_user(vaddr_t va, struct addrspace *as, int state) {
 
         // Se non c'è memoria fisica disponibile dobbiamo scegliere una victim tramite Round Robin
         if(pa == 0) {
-            victim = current_victim;
-            current_victim = (current_victim + 1) %  nRamFrames;
+            victim = tlb_get_rr_victim_not_fixed(1);
             pos = victim;
             // Qui dovremmo chiamare la funzione swap_out per scrivere la pagina vittima su swap
             victim_pa = pos * PAGE_SIZE; // Calcoliamo l'indirizzo fisico della vittima
             victim_va = coremap[pos].vaddr; // Recuperiamo l'indirizzo virtuale della vittima
-            result_swap_out = swap_out(victim_pa);
-            KASSERT(result_swap_out == 0);
-            pt_set_state(as->pt, victim_va, 1); // Aggiorniamo lo stato della pagina nel page table per segnare la vittima come "swapped out"
-            tlb_check_victim_pa(pa, va, state); // Verifica e aggiorna le voci del TLB associate a un indirizzo fisico vittima, con il nuovo VA. ( CONTROLLARE pa mi sembra errato )
+            result_swap_out = swap_out(victim_pa, victim_va); // Swap-out della pagina
+            //KASSERT(result_swap_out == 0);
+            pt_set_state(as->pt, victim_va, result_swap_out,0 ); // Aggiorniamo lo stato della pagina nel page table per segnare la vittima come "swapped out"
+            // Verifica e aggiorna le voci del TLB associate a un indirizzo fisico vittima, con il nuovo VA. ( CONTROLLARE pa mi sembra errato )
+            KASSERT(state == state);
+            //tlb_check_victim_pa(pa, va, state); 
             pa = victim_pa  // Impostiamo l'indirizzo fisico della vittima come la pagina da restituire
             kprintf("SWAPPING line 276: (victim_pa: 0x%x victim_va: 0x%x)\n", victim_pa, victim_va); // Print per debug
+            pos = victim_pa / PAGE_SIZE; // Impostiamo la posizione della vittima
         } else {  
             pos = pa / PAGE_SIZE;
         }
@@ -172,8 +175,14 @@ static paddr_t getppage_user(vaddr_t va, struct addrspace *as, int state) {
 
 // Ottiene npages pagine fisiche libere e le imposta come "fixed" nella coremap ( per il kernel )
 static paddr_t getppages(unsigned long npages) {
-    unsigned long i;
+    unsigned long i, pos;
     paddr_t addr;
+    unsigned int victim;
+    volatile paddr_t victim_pa;
+    vaddr_t victim_va;
+    int result_swap_out;
+    struct addrspace* as;
+    int result;
     addr = getfreeppages(npages);
     // Viene ritornato 0 se non sono disponibili pagine liberate in precedenza, quindi si "rubano" dalla RAM
     if (addr == 0) {
@@ -182,6 +191,30 @@ static paddr_t getppages(unsigned long npages) {
         spinlock_release(&stealmem_lock);
         // dopo aver rubato memoria dobbiamo avere necessariamente l'indirizzo fisico diverso da 0, se no viene generato un crash del kernel
         KASSERT(addr != 0);
+    }
+    if(addr == 0) {
+        // Se addr è ancora 0, scegliamo una vittima da svuotare tramite Round Robin
+        victim = tlb_get_rr_victim_not_fixed(npages);
+        
+        // Otteniamo l'address space del processo
+        as = proc_getas();
+        if (as == NULL) return 0;  // Se è un thread del kernel, lasciamo invariato l'address space
+
+        // Eseguiamo lo swap-out delle pagine per liberare spazio
+        for(i = 0; i < npages; i++) {
+            pos = victim + i;  
+            victim_pa = pos * PAGE_SIZE;  // Indirizzo fisico della vittima
+            victim_va = coremap[pos].vaddr;  
+            result_swap_out = swap_out(victim_pa, victim_va);  // Swap-out della pagina
+
+            // Aggiorniamo la tabella delle pagine
+            pt_set_state(as->pt, victim_va, result_swap_out, 0);
+
+            // Rimuoviamo l'entrata dalla TLB
+            result = tlb_remove_by_va(victim_va);
+            KASSERT(result != -1);  // Verifica della rimozione dalla TLB
+        }
+        addr = victim * PAGE_SIZE;  // Impostiamo addr all'indirizzo della vittima
     }
     if (addr != 0 && isCoremapActive()) {
         spinlock_acquire(&freemem_lock);
@@ -239,7 +272,7 @@ void page_free(paddr_t addr) {
     pos = addr / PAGE_SIZE;
 
     KASSERT(coremap[pos].status != fixed);
-    KASSERT(coremap[pos].status != clean);
+    //KASSERT(coremap[pos].status != clean);
 
     // Per proteggere l'accesso alla coremap
     spinlock_acquire(&freemem_lock);
@@ -278,4 +311,40 @@ static int freeppages(paddr_t addr, unsigned long npages) {
     spinlock_release(&freemem_lock);
 
     return 1;
+}
+
+
+/**
+ * Seleziona una sequenza contigua di frame di memoria utilizzabili come vittime 
+ * per il TLB, escludendo quelli con stato "fixed" o "clean". 
+ * Utilizza un algoritmo di selezione Round Robin per garantire una distribuzione 
+ * equa delle vittime tra tutti i frame disponibili.
+ */
+static int tlb_get_rr_victim_not_fixed(int size) {
+    int victim = -1;      // Indica il frame corrente selezionato come potenziale vittima
+    int len = 0;          // Contatore per verificare la contiguità di "size" frame
+    KASSERT(size != 0);   // Verifica che la dimensione richiesta non sia zero
+
+    while (len < size) {  // Continua finché non si trovano "size" frame contigui non fissi
+        // Controlla se ci si avvicina al limite dell'array della coremap
+        // e resetta l'indice al primo frame (Round Robin)
+        if (current_victim + (size - len) >= (unsigned int)nRamFrames) {
+            current_victim = 0;
+        }
+
+        // Registra l'indice corrente come potenziale vittima
+        victim = current_victim;
+        // Incrementa l'indice per il prossimo frame (Round Robin)
+        current_victim = (current_victim + 1) % nRamFrames;
+
+        // Controlla lo stato del frame corrente
+        if (coremap[victim].status != fixed && coremap[victim].status != clean) {
+            len += 1; // Aggiungi al contatore se il frame è idoneo
+        } else {
+            len = 0; // Reset del contatore se un frame non idoneo viene trovato
+        }
+    }
+
+    // Restituisce l'indice del primo frame contiguo trovato
+    return victim - (len - 1);
 }

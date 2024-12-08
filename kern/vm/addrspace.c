@@ -108,6 +108,7 @@ void as_destroy(struct addrspace* as) {
 
 	struct vnode *v;
 	KASSERT(as != NULL);
+	kprintf("Total SWAPOUT: %d -- Total SWAPIN: %d\n", getOut(), getIn());
 	v = as->code->vnode;
 	seg_destroy(as->code);
 	seg_destroy(as->data);
@@ -150,15 +151,36 @@ void as_activate(void)
     splx(spl);
 }
 
+/*
+ * Questa funzione invalida tutte le entry nella Translation Lookaside Buffer (TLB) 
+ * per il processo corrente. È utilizzata per garantire che vecchie mappature di indirizzi virtuali 
+ * non vengano utilizzate erroneamente quando il processo non è attivo. La funzione disabilita 
+ * temporaneamente gli interrupt per proteggere la coerenza della TLB durante l'operazione.
+ */
+void as_deactivate(void) {
+    int i, spl;
+    struct addrspace *as;
 
-void
-as_deactivate(void)
-{
-	/*
-	 * Write this. For many designs it won't need to actually do
-	 * anything. See proc.c for an explanation of why it (might)
-	 * be needed.
-	 */
+    // Ottiene lo spazio degli indirizzi (address space) associato al processo corrente
+    as = proc_getas();
+    if (as == NULL) {
+        // Se non c'è un address space (ad esempio, è un thread del kernel),
+        // non è necessario fare nulla.
+        return;
+    }
+
+    // Disabilita gli interrupt per garantire che la modifica alla TLB non venga interrotta.
+    spl = splhigh();
+
+    // Invalida tutte le entry nella TLB.
+    // Questo rimuove tutte le mappature degli indirizzi virtuali per il processo corrente,
+    // assicurandosi che non vengano riutilizzate per errore.
+    for (i = 0; i < NUM_TLB; i++) {
+        tlb_write(TLBHI_INVALID(i), TLBLO_INVALID(), i);
+    }
+
+    // Riabilita gli interrupt ora che il TLB è stato pulito.
+    splx(spl);
 }
 
 /*
