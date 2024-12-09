@@ -93,7 +93,7 @@ int vm_fault(int fault_type, vaddr_t fault_addr)
     paddr_t pa;
     struct segment * seg;
     vaddr_t pageallign_va;
-    off_t swapped_out; // Flag per indicare se la pagina è stata swappata
+    off_t swap_offset; // Offset della pagina nello swap file
     off_t result_swap_in; // Risultato della funzione swap_in
 
     //TODO
@@ -148,10 +148,10 @@ int vm_fault(int fault_type, vaddr_t fault_addr)
     // Cerchiamo l'indirizzo fisico corrispondente nel page table
     pa = pt_get_pa(as->pt, fault_addr);
     // Verifichiamo se la pagina è stata swappata
-    swapped_out = pt_get_state(as->pt, fault_addr);
+    swap_offset = pt_get_state(as->pt, fault_addr);
 
     // Se non esiste, dobbiamo allocare un nuovo frame
-    if(pa == PFN_NOT_USED && swapped_out == -1) {
+    if(pa == PFN_NOT_USED && swap_offset == -1) {
         // Richiesta di un nuovo frame fisico alla Coremap
         pa = page_alloc(pageallign_va, new_state);
 
@@ -169,18 +169,18 @@ int vm_fault(int fault_type, vaddr_t fault_addr)
         }
         new_page = 1;
     }
-    else if(swapped_out>0) {
+    else if(swap_offset >= 0) {
 
         // Se la pagina è stata "swappata fuori", la carichiamo dalla swap
         pa = page_alloc(pageallign_va, new_state);  // Alloca una pagina fisica
 
         // Carica la pagina dal file di swap
-        result_swap_in = swap_in(pa, pageallign_va, swapped_out);  // Carica la pagina dal file di swap
+        result_swap_in = swap_in(pa, pageallign_va, swap_offset);  // Carica la pagina dal file di swap
 
         KASSERT(result_swap_in == 0);  // Verifica che il caricamento sia riuscito
 
         // Aggiorna lo stato della pagina nella page table
-        pt_set_state(as->pt, pageallign_va, -1);
+        pt_set_state(as->pt, pageallign_va, -1, pa);  // Imposta lo stato della pagina come in memoria
     }
 
 

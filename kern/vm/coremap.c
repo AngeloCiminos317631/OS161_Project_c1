@@ -94,7 +94,7 @@ vaddr_t alloc_kpages(unsigned long npages) {
 }
 
 // Alloca una pagina di memoria per l'indirizzo virtuale dato (per user )
-paddr_t page_alloc(vaddr_t vaddr, int state) {
+paddr_t page_alloc(vaddr_t vaddr/*, int state*/) {
     paddr_t pa;
     struct addrspace *as_cur;
 
@@ -104,12 +104,12 @@ paddr_t page_alloc(vaddr_t vaddr, int state) {
     as_cur = proc_getas();
     KASSERT(as_cur != NULL)
 
-    pa = getppage_user(vaddr, as_cur, state);  // Richiede una pagina fisica
+    pa = getppage_user(vaddr, as_cur/*, state*/);  // Richiede una pagina fisica
     return pa;
 }
 
 // Funzione helper per assegnare pagina utente ad un frame della coremap
-static paddr_t getppage_user(vaddr_t va, struct addrspace *as, int state) {
+static paddr_t getppage_user(vaddr_t va, struct addrspace *as/*, int state*/) {
     volatile int found = 0, pos;
     int i;
     unsigned int victim;
@@ -142,7 +142,7 @@ static paddr_t getppage_user(vaddr_t va, struct addrspace *as, int state) {
 
         // Se non c'è memoria fisica disponibile dobbiamo scegliere una victim tramite Round Robin
         if(pa == 0) {
-            victim = tlb_get_rr_victim_not_fixed(1);
+            victim = get_victim_coremap(1);
             pos = victim;
             // Qui dovremmo chiamare la funzione swap_out per scrivere la pagina vittima su swap
             victim_pa = pos * PAGE_SIZE; // Calcoliamo l'indirizzo fisico della vittima
@@ -151,7 +151,7 @@ static paddr_t getppage_user(vaddr_t va, struct addrspace *as, int state) {
             //KASSERT(result_swap_out == 0);
             pt_set_state(as->pt, victim_va, result_swap_out,0 ); // Aggiorniamo lo stato della pagina nel page table per segnare la vittima come "swapped out"
             // Verifica e aggiorna le voci del TLB associate a un indirizzo fisico vittima, con il nuovo VA. ( CONTROLLARE pa mi sembra errato )
-            KASSERT(state == state);
+            //KASSERT(state == state); DA VALUTARE INSIEME A state
             //tlb_check_victim_pa(pa, va, state); 
             pa = victim_pa  // Impostiamo l'indirizzo fisico della vittima come la pagina da restituire
             kprintf("SWAPPING line 276: (victim_pa: 0x%x victim_va: 0x%x)\n", victim_pa, victim_va); // Print per debug
@@ -194,7 +194,7 @@ static paddr_t getppages(unsigned long npages) {
     }
     if(addr == 0) {
         // Se addr è ancora 0, scegliamo una vittima da svuotare tramite Round Robin
-        victim = tlb_get_rr_victim_not_fixed(npages);
+        victim = get_victim_coremap(npages);
         
         // Otteniamo l'address space del processo
         as = proc_getas();
@@ -320,7 +320,7 @@ static int freeppages(paddr_t addr, unsigned long npages) {
  * Utilizza un algoritmo di selezione Round Robin per garantire una distribuzione 
  * equa delle vittime tra tutti i frame disponibili.
  */
-static int tlb_get_rr_victim_not_fixed(int size) {
+static int get_victim_coremap(int size) {
     int victim = -1;      // Indica il frame corrente selezionato come potenziale vittima
     int len = 0;          // Contatore per verificare la contiguità di "size" frame
     KASSERT(size != 0);   // Verifica che la dimensione richiesta non sia zero

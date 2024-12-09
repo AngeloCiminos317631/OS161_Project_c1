@@ -75,9 +75,7 @@
  * change this code to not use uiomove, be sure to check for this case
  * explicitly.
  */
-static
-int
-load_segment(struct addrspace *as, struct vnode *v,
+int load_segment(struct addrspace *as, struct vnode *v,
 	     off_t offset, vaddr_t vaddr,
 	     size_t memsize, size_t filesize,
 	     int is_executable)

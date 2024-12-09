@@ -95,6 +95,7 @@ void pt_set_pa(struct pt_directory* pt, vaddr_t va, paddr_t pa);
  * @param va L'indirizzo virtuale della pagina.
  */
 off_t pt_get_state(struct pt_directory* pt, vaddr_t va);
+
 /**
  * Imposta lo stato di una pagina in una page table.
  * Permette di aggiornare il campo swapped_out per indicare se la pagina è swappata o meno.

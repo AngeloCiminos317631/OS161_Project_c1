@@ -126,7 +126,7 @@ void pt_destroy(struct pt_directory* pt) {
  * @param pt: puntatore alla outer table
  * @param va: indirizzo virtuale che richiede la nuova inner table
  */
-static void pt_define_inner(struct pt_directory* pt, vaddr_t va) {
+void pt_define_inner(struct pt_directory* pt, vaddr_t va) {
     unsigned int index, i;
 
     index = get_outer_index(va); // Ottiene l'indice della outer table

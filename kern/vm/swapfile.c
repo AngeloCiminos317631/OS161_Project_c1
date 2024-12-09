@@ -113,7 +113,7 @@ int swap_in(paddr_t ppadd, vaddr_t pvadd, off_t offset) {
     // KASSERT(page_index != -1);
     // new_offset =(off_t)(page_index * PAGE_SIZE);    // Casting
     KASSERT(offset >= 0); // Verifica che l'offset sia positivo
-    KASSERT(pvadd == pvadd); // Verifica che l'indirizzo virtuale sia valido
+    //KASSERT(pvadd == pvadd); // Verifica che l'indirizzo virtuale sia valido
     page_index = offset/PAGE_SIZE; // Calcola l'indice della pagina nel file di swap
     spinlock_acquire(&filelock);
     // Fix del descriptor dello swapfile

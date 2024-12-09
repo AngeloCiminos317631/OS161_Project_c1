@@ -54,7 +54,7 @@ void coremap_shutdown(void);
  * @param state Parametro per tracciare lo stato della pagina da allocare
  * @return L'indirizzo fisico della pagina assegnata, o 0 in caso di errore.
  */
-paddr_t page_alloc(vaddr_t vaddr, int state);
+paddr_t page_alloc(vaddr_t vaddr/*, int state*/); //Parametro state DA VALUTARE
 
 /**
  * Libera una pagina fisica, rendendola disponibile per nuove allocazioni.

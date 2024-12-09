@@ -13,5 +13,11 @@
  
 int tlb_check_victim_pa(paddr_t pa_victim, vaddr_t new_va, int state);
 
+/**
+ * Rimuove una voce dal TLB associata a un indirizzo virtuale.
+ *
+ * @param va Indirizzo virtuale da rimuovere.
+ * @return 1 se la voce è stata rimossa, 0 altrimenti.
+ */
 int tlb_remove_by_va(vaddr_t va);
 #endif
