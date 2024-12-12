@@ -80,6 +80,18 @@ void coremap_shutdown() {
     spinlock_release(&freemem_lock);
 }
 
+void coremap_turn_off() {
+    spinlock_acquire(&freemem_lock);
+    coremapActive = 0;
+    spinlock_release(&freemem_lock);
+}
+
+void coremap_turn_on() {
+    spinlock_acquire(&freemem_lock);
+    coremapActive = 1;
+    spinlock_release(&freemem_lock);
+}
+
 // Sezione 2: Funzioni di allocazione per il kernel e utente
 
 // Alloca npages pagine contigue per il kernel e restituisce l'indirizzo virtuale
@@ -148,11 +160,11 @@ static paddr_t getppage_user(vaddr_t va, struct addrspace *as/*, int state*/) {
             victim_pa = pos * PAGE_SIZE; // Calcoliamo l'indirizzo fisico della vittima
             victim_va = coremap[pos].vaddr; // Recuperiamo l'indirizzo virtuale della vittima
             result_swap_out = swap_out(victim_pa, victim_va); // Swap-out della pagina
-            //KASSERT(result_swap_out == 0);
-            pt_set_state(as->pt, victim_va, result_swap_out,0 ); // Aggiorniamo lo stato della pagina nel page table per segnare la vittima come "swapped out"
+            // Aggiorniamo lo stato della pagina nel page table per segnare la vittima come "swapped out"
+            pt_set_offset(as->pt, victim_va, result_swap_out);
+            pt_set_pa(as->pt, victim_va, 0);
             // Verifica e aggiorna le voci del TLB associate a un indirizzo fisico vittima, con il nuovo VA. ( CONTROLLARE pa mi sembra errato )
             //KASSERT(state == state); DA VALUTARE INSIEME A state
-            //tlb_check_victim_pa(pa, va, state); 
             pa = victim_pa  // Impostiamo l'indirizzo fisico della vittima come la pagina da restituire
             kprintf("SWAPPING line 276: (victim_pa: 0x%x victim_va: 0x%x)\n", victim_pa, victim_va); // Print per debug
             pos = victim_pa / PAGE_SIZE; // Impostiamo la posizione della vittima
@@ -208,7 +220,8 @@ static paddr_t getppages(unsigned long npages) {
             result_swap_out = swap_out(victim_pa, victim_va);  // Swap-out della pagina
 
             // Aggiorniamo la tabella delle pagine
-            pt_set_state(as->pt, victim_va, result_swap_out, 0);
+            pt_set_offset(as->pt, victim_va, result_swap_out);
+            pt_set_pa(as->pt, victim_va, 0);
 
             // Rimuoviamo l'entrata dalla TLB
             result = tlb_remove_by_va(victim_va);

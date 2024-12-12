@@ -3,7 +3,7 @@
 
 #include <vm.h>
 
-#define VMC1_STACKPAGES 18  // Numero di pagine riservate per lo stack
+#define VMC1_STACKPAGES 12  // Numero di pagine riservate per lo stack
 
 /*
  * Inizializza il sottosistema di memoria virtuale.

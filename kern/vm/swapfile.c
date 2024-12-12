@@ -7,12 +7,8 @@
 #include <bitmap.h>
 #include <swapfile.h>
 
-// Abbiamo bisogno di una bitmap per tenere traccia di quali chunk siano pieni e vuoti nello swapfile
-//// static struct bitmap *map;
-// Creiamo invece una lista di entries
+// Creiamo una lista di entries
 static struct swap_page swap_list[NUM_PAGES];
-
-
 
 // Solo un processo alla volta può accedere allo swapfile per cui abbiamo bisogno di uno spinlock
 static struct spinlock filelock = SPINLOCK_INITIALIZER;
@@ -91,7 +87,7 @@ int swap_out(paddr_t ppaddr, vaddr_t pvaddr) {
 }
 
 
-int swap_in(paddr_t ppadd, vaddr_t pvadd, off_t offset) {
+int swap_in(paddr_t ppadd, off_t offset) {
     unsigned int swap_index;
     struct iovec iov;
     struct uio u;
@@ -141,7 +137,15 @@ int swap_in(paddr_t ppadd, vaddr_t pvadd, off_t offset) {
 
 
 void swap_shutdown(void) {
-   vfs_close(v);
+    int i;
+    vfs_close(v);
+
+    for(i=0; i<NUM_PAGES; i++) {
+        swap_list[i].ppadd = 0;
+        swap_list[i].pvadd = 0;
+        swap_list[i].swap_offset = 0;
+        swap_list[i].free = 1;
+    }
 }
 
 int getIn(void) {

@@ -45,6 +45,11 @@ void coremap_init(void);
 void coremap_shutdown(void);
 
 
+
+void coremap_turn_off(void);
+
+void coremap_turn_on(void);
+
 // Funzioni per l'allocazione e liberazione di pagine fisiche per programmi utente
 
 /**

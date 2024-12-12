@@ -94,17 +94,17 @@ void pt_set_pa(struct pt_directory* pt, vaddr_t va, paddr_t pa);
  * @param pt La page table in cui cercare.
  * @param va L'indirizzo virtuale della pagina.
  */
-off_t pt_get_state(struct pt_directory* pt, vaddr_t va);
+off_t pt_get_offset(struct pt_directory* pt, vaddr_t va);
 
 /**
- * Imposta lo stato di una pagina in una page table.
+ * Imposta l'offset di una pagina in una page table.
  * Permette di aggiornare il campo swapped_out per indicare se la pagina è swappata o meno.
  *
  * @param pt La page table in cui aggiornare lo stato.
  * @param va L'indirizzo virtuale della pagina.
  * @param state Il nuovo stato: 0 per in memoria, 1 per swappata.
  */
-void pt_set_state(struct pt_directory* pt, vaddr_t va, off_t state, paddr_t pa); //Non sono sicuro che off_t sia il tipo giusto per state
+void pt_set_offset(struct pt_directory* pt, vaddr_t va, off_t offset); //Non sono sicuro che off_t sia il tipo giusto per state
 
 /**
  * Invalida tutte le mappature in un contesto di page table.

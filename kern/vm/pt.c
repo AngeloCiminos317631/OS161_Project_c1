@@ -165,7 +165,6 @@ int pt_get_pa(struct pt_directory* pt, vaddr_t va) {
     d = get_page_offset(va);
     KASSERT(d < PAGE_SIZE);
 
-    // && !pt->pages[outer].pages[inner].swapped_out 
     if (pt->pages[outer].valid) {
         if (pt->pages[outer].pages[inner].valid) {
             return pt->pages[outer].pages[inner].pfn;
@@ -213,7 +212,7 @@ void pt_set_pa(struct pt_directory* pt, vaddr_t va, paddr_t pa) {
  * @param va L'indirizzo virtuale della pagina.
  * @return 0 se la pagina è in memoria, 1 se è swappata, 2 se non è valida.
  */
-off_t pt_get_state(struct pt_directory* pt, vaddr_t va) {
+off_t pt_get_offset(struct pt_directory* pt, vaddr_t va) {
     unsigned int outer, inner, d;
     off_t flag;
 
@@ -254,7 +253,7 @@ off_t pt_get_state(struct pt_directory* pt, vaddr_t va) {
  * @param state Il nuovo stato: 0 per in memoria, 1 per swappata.
  * @param pa L'indirizzo fisico della pagina.
  */
-void pt_set_state(struct pt_directory* pt, vaddr_t va, off_t state, paddr_t pa) {
+void pt_set_offset(struct pt_directory* pt, vaddr_t va, off_t offset) {
     volatile unsigned int outer, inner, d;
 
     // Estrai l'indice della outer table
@@ -280,8 +279,8 @@ void pt_set_state(struct pt_directory* pt, vaddr_t va, off_t state, paddr_t pa) 
     // Marca la pagina come valida
     pt->pages[inner].pages[outer].valid = 1;
 
-    // Aggiorna il campo swapped_out con il nuovo stato
-    pt->pages[inner].pages[outer].swapped_out = state;
+    // Aggiorna il campo swapped_out con il nuovo offset
+    pt->pages[inner].pages[outer].swapped_out = offset;
 
     // Imposta l'indirizzo fisico della pagina
     pt->pages[outer].pages[inner].pfn = pa;

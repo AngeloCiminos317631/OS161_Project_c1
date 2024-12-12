@@ -45,7 +45,6 @@ static unsigned int tlb_get_rr_victim(void) {
 void vm_bootstrap(void) {
     coremap_init();
     current_victim = 0; // È inizializzata a 0 e mantiene il suo valore tra le chiamate alla funzione.
-    swapfile_init();
 }
 
 /* 
@@ -53,7 +52,6 @@ void vm_bootstrap(void) {
  * allocate per la coremap.
  */
 void vm_shutdown(void) {
-    swap_shutdown();
     coremap_shutdown();
 }
 
@@ -86,7 +84,7 @@ void vm_can_sleep(void) {
  */
 int vm_fault(int fault_type, vaddr_t fault_addr)
 {
-    int spl, new_page, result, new_state = -1; //i, found
+    int spl, new_page, result; //i, found
     unsigned int victim;
     uint32_t ehi, elo;
     struct addrspace *as;
@@ -140,20 +138,16 @@ int vm_fault(int fault_type, vaddr_t fault_addr)
     }
 
     // Determina lo stato da assegnare all'entry TLB in base ai permessi della sezione di memoria.
-    // Se il segmento ha permessi di lettura e scrittura (PF_R | PF_W) o un permesso speciale (PF_S), allora abilita il bit TLBLO_DIRTY per consentire l'accesso in scrittura.
-    if (seg->p_permission == (PF_R | PF_W) || seg->p_permission == PF_S) {
-        new_state = TLBLO_DIRTY; // La pagina sarà scrivibile (lettura e scrittura consentite).
-    }
 
     // Cerchiamo l'indirizzo fisico corrispondente nel page table
     pa = pt_get_pa(as->pt, fault_addr);
     // Verifichiamo se la pagina è stata swappata
-    swap_offset = pt_get_state(as->pt, fault_addr);
+    swap_offset = pt_get_offset(as->pt, fault_addr);
 
     // Se non esiste, dobbiamo allocare un nuovo frame
     if(pa == PFN_NOT_USED && swap_offset == -1) {
         // Richiesta di un nuovo frame fisico alla Coremap
-        pa = page_alloc(pageallign_va, new_state);
+        pa = page_alloc(pageallign_va);
 
         // Aggiornamento della pagetable, associando all'indirizzo virtuale il frame fisico appena allocato
         KASSERT((pa & PAGE_FRAME) == pa);
@@ -172,15 +166,17 @@ int vm_fault(int fault_type, vaddr_t fault_addr)
     else if(swap_offset >= 0) {
 
         // Se la pagina è stata "swappata fuori", la carichiamo dalla swap
-        pa = page_alloc(pageallign_va, new_state);  // Alloca una pagina fisica
+        pa = page_alloc(pageallign_va);  // Alloca una pagina fisica
 
         // Carica la pagina dal file di swap
-        result_swap_in = swap_in(pa, pageallign_va, swap_offset);  // Carica la pagina dal file di swap
+        result_swap_in = swap_in(pa, swap_offset);  // Carica la pagina dal file di swap
 
         KASSERT(result_swap_in == 0);  // Verifica che il caricamento sia riuscito
 
         // Aggiorna lo stato della pagina nella page table
-        pt_set_state(as->pt, pageallign_va, -1, pa);  // Imposta lo stato della pagina come in memoria
+        // Imposta lo stato della pagina come in memoria
+        pt_set_offset(as->pt, pageallign_va, pa);
+        pt_set_pa(as->pt, pageallign_va, -1);
     }
 
 
@@ -195,29 +191,7 @@ int vm_fault(int fault_type, vaddr_t fault_addr)
     // Disabilita le interruzioni per gestire la TLB in modo sicuro
     spl = splhigh();
 
-    // TODO review della tlb function
-    // found = tlb_probe(faultaddress, 0);
-    // if(found < 0) { // Non trovato
-    //     for (i=0; i<NUM_TLB; i++) {
-    //         tlb_read(&ehi, &elo, i);
-    //         if (elo & TLBLO_VALID) {
-    //             continue;
-    //         }
-    //         ehi = pageallign_va;
-    //         elo = pa | TLBLO_DIRTY | TLBLO_VALID;
-    //         DEBUG(DB_VM, "dumbvm: 0x%x -> 0x%x\n", faultaddress, pa);
-    //         tlb_write(ehi, elo, i);
-    //         splx(spl);
-    //         return 0;
-    //     }
-    //     // Scelta della vittima
 
-    //     ehi = pageallign_va;
-    //     elo = pa | TLBLO_DIRTY | TLBLO_VALID;
-    //     victim = tlb_get_rr_victim();
-    //     tlb_write(ehi, elo, victim);
-    //     return 0;
-    // }
 
     victim = tlb_get_rr_victim();
 

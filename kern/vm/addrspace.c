@@ -71,6 +71,7 @@ struct addrspace* as_create(void) {
 	as->data = seg_create();
 	as->stack = seg_create();
 	as->pt = pt_create(); // Creazione della page table
+	swapfile_init();
     return as;
 }
 
@@ -116,6 +117,7 @@ void as_destroy(struct addrspace* as) {
 	pt_destroy(as->pt);
 	vfs_close(v); 
 	kfree(as);
+	swap_shutdown();
 }
 
 
