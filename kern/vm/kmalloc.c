@@ -31,7 +31,11 @@
 #include <lib.h>
 #include <spinlock.h>
 #include <vm.h>
-#include <coremap.h> //inclusione header per modulo Coremap
+#include "opt-dumbvm.h"
+#if !OPT_DUMBVM
+	#include <coremap.h> //inclusione header per modulo Coremap
+#endif
+
 
 /*
  * Kernel malloc.

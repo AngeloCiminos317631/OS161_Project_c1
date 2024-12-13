@@ -59,6 +59,7 @@
 #include <addrspace.h>
 #include <vnode.h>
 #include <elf.h>
+#include "opt-dumbvm.h"
 
 
 /*
@@ -247,14 +248,15 @@ load_elf(struct vnode *v, vaddr_t *entrypoint)
 			return ENOEXEC;
 		}
 
-		/*
+#if OPT_DUMBVM
+		
 		result = as_define_region(as,
 					  ph.p_vaddr, ph.p_memsz,
 					  ph.p_flags & PF_R,
 					  ph.p_flags & PF_W,
 					  ph.p_flags & PF_X);
-		*/
-
+		
+#else
 		result = as_define_region(as, 
 							ph.p_type, ph.p_offset, ph.p_vaddr, 
 							ph.p_memsz, ph.p_filesz, 
@@ -262,6 +264,7 @@ load_elf(struct vnode *v, vaddr_t *entrypoint)
 							ph.p_flags & PF_W, 
 							ph.p_flags & PF_X, pos, v);
 		pos += 1; 
+#endif
 		if (result) {
 			return result;
 		}

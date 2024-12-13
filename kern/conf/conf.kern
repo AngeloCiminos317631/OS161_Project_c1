@@ -342,8 +342,8 @@ file      proc/proc.c
 
 file      vm/kmalloc.c
 
-# optfile dumbvm   vm/addrspace.c Relativa a vecchia implementazione VM
-
+#defoption dumbvm                 #Sembrerebbe relativa a vecchia conf : verificare
+#optofffile dumbvm vm/addrspace.c
 #
 # Network
 # (nothing here yet)
@@ -389,11 +389,12 @@ file      main/menu.c
 
 ########################################
 #                                      #
-#              DUMBVM                  #
+#              DUMBVM                  #   
 #                                      #
 ########################################
 #defoption dumbvm
-#optfile dumbvm vm/addrspace.c
+#optofffile dumbvm vm/addrspace.c  #relativa a vecchia conf: verificare
+
 
 # OS161 Project
 defoption c1-pag     # aggiungere file opzionali per progetto

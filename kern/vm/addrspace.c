@@ -46,6 +46,7 @@
 // Aggiunta header file per la gestione della VM
 #include <vmc1.h>
 
+
 /*
  * Note! If OPT_DUMBVM is set, as is the case until you start the VM
  * assignment, this file is not compiled or linked or in any way
@@ -185,16 +186,6 @@ void as_deactivate(void) {
     splx(spl);
 }
 
-/*
- * Set up a segment at virtual address VADDR of size MEMSIZE. The
- * segment in memory extends from VADDR up to (but not including)
- * VADDR+MEMSIZE.
- *
- * The READABLE, WRITEABLE, and EXECUTABLE flags are set if read,
- * write, or execute permission should be set on the segment. At the
- * moment, these are ignored. When you write the VM system, you may
- * want to implement them.
- */
 int
 as_define_region(struct addrspace *as, uint32_t type, uint32_t offset ,vaddr_t vaddr, size_t memsize,
 		 uint32_t filesize, int readable, int writeable, int executable, int seg_n, struct vnode *v)

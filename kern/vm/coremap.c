@@ -169,6 +169,7 @@ static paddr_t getppage_user(vaddr_t va, struct addrspace *as/*, int state*/) {
             pa = victim_pa  // Impostiamo l'indirizzo fisico della vittima come la pagina da restituire
             pos = victim_pa / PAGE_SIZE; // Impostiamo la posizione della vittima
             result = tlb_remove_by_va(victim_va); //Rimozione dalla TLB dell'entry associata all'indirizzo virtuale della vittima (victim_va)
+            KASSERT(result == 0);
         } else {  
             pos = pa / PAGE_SIZE;
         }

@@ -44,6 +44,7 @@
 #include <vfs.h>
 #include <syscall.h>
 #include <test.h>
+#include "opt-dumbvm.h"
 
 /*
  * Load program "progname" and start running it in usermode.
@@ -90,10 +91,12 @@ runprogram(char *progname)
 		return result;
 	}
 
-		// Vecchio codice implementazione VM - Valutare con opzioni
-		// /* Done with the file now. */
-		// vfs_close(v);
 
+
+	#if OPT_DUMBVM
+		/* Done with the file now. */
+		vfs_close(v);
+	#endif
 
 	/* Define the user stack in the address space */
 	result = as_define_stack(as, &stackptr);

@@ -50,7 +50,11 @@
 #include <addrspace.h>
 #include <mainbus.h>
 #include <vnode.h>
-#include <coremap.h>
+#include "opt-dumbvm.h"
+
+#if !OPT_DUMBVM
+	#include <coremap.h>
+#endif
 
 
 /* Magic number used as a guard value on kernel thread stacks. */
@@ -504,7 +508,7 @@ thread_fork(const char *name,
 	}
 
 	// coremap_init();  Commentata per RIMOZIONE
-	
+
 	/* Allocate a stack */
 	newthread->t_stack = kmalloc(STACK_SIZE);
 	if (newthread->t_stack == NULL) {
