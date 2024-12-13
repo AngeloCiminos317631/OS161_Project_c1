@@ -31,7 +31,6 @@ void swapfile_init(void) {
     }
 
     // Quando a runtime sono necessari più di 9MB => panic
-    kprintf("SWAPFILE INIT\n");
     result = vfs_open((char *)"emu0:/SWAPFILE", O_RDWR | O_CREAT , 0, &v);
     KASSERT(result == 0);
     return;
@@ -66,6 +65,7 @@ int swap_out(paddr_t ppaddr, vaddr_t pvaddr) {
         return -1;
     }
 
+    timesOut++;
     page_offset = free_index * PAGE_SIZE;
     KASSERT(page_offset < FILE_SIZE);
     KASSERT((ppaddr & PAGE_FRAME) == ppaddr); // Verifica che l'indirizzo fisico sia allineato a pagina
@@ -91,23 +91,11 @@ int swap_in(paddr_t ppadd, off_t offset) {
     unsigned int swap_index;
     struct iovec iov;
     struct uio u;
-    //int i;
     int page_index;
-    //off_t new_offset;
     int result;
 
     timesIn++;
 
-    // page_index = -1;
-    // for (i=0; i< NUM_PAGES; i++) {
-    //     if(swap_list[i].pvadd == pvadd) {
-    //         page_index = i;
-    //         break;
-    //     }
-    // } 
-
-    // KASSERT(page_index != -1);
-    // new_offset =(off_t)(page_index * PAGE_SIZE);    // Casting
     KASSERT(offset >= 0); // Verifica che l'offset sia positivo
     //KASSERT(pvadd == pvadd); // Verifica che l'indirizzo virtuale sia valido
     page_index = offset/PAGE_SIZE; // Calcola l'indice della pagina nel file di swap

@@ -79,18 +79,18 @@ void coremap_shutdown() {
     kfree(coremap);  // Libera la memoria della coremap dal kernel space
     spinlock_release(&freemem_lock);
 }
-
-void coremap_turn_off() {
-    spinlock_acquire(&freemem_lock);
-    coremapActive = 0;
-    spinlock_release(&freemem_lock);
-}
-
-void coremap_turn_on() {
-    spinlock_acquire(&freemem_lock);
-    coremapActive = 1;
-    spinlock_release(&freemem_lock);
-}
+ 
+// void coremap_turn_off() {
+//     spinlock_acquire(&freemem_lock);
+//     coremapActive = 0;
+//     spinlock_release(&freemem_lock);
+// }
+//                                         //Commentate per RIMOZIONE
+// void coremap_turn_on() {
+//     spinlock_acquire(&freemem_lock);
+//     coremapActive = 1;
+//     spinlock_release(&freemem_lock);
+// }
 
 // Sezione 2: Funzioni di allocazione per il kernel e utente
 
@@ -134,7 +134,7 @@ static paddr_t getppage_user(vaddr_t va, struct addrspace *as/*, int state*/) {
     // Per proteggere l'accesso alla coremap
     spinlock_acquire(&freemem_lock);
     // Cerca una pagina precedentemente liberata, usando una ricerca lineare
-    for(i = 0; i < nRamFrames && !found; i++) {
+    for(i = 1; i < nRamFrames && !found; i++) {
         if(coremap[i].status == free) {
             found = 1;
             break;
@@ -167,7 +167,6 @@ static paddr_t getppage_user(vaddr_t va, struct addrspace *as/*, int state*/) {
             // Verifica e aggiorna le voci del TLB associate a un indirizzo fisico vittima, con il nuovo VA. ( CONTROLLARE pa mi sembra errato )
             //KASSERT(state == state); DA VALUTARE INSIEME A state
             pa = victim_pa  // Impostiamo l'indirizzo fisico della vittima come la pagina da restituire
-            kprintf("SWAPPING line 276: (victim_pa: 0x%x victim_va: 0x%x)\n", victim_pa, victim_va); // Print per debug
             pos = victim_pa / PAGE_SIZE; // Impostiamo la posizione della vittima
             result = tlb_remove_by_va(victim_va); //Rimozione dalla TLB dell'entry associata all'indirizzo virtuale della vittima (victim_va)
         } else {  
@@ -238,7 +237,6 @@ static paddr_t getppages(unsigned long npages) {
         coremap[addr / PAGE_SIZE].status = fixed;
 
         for(i = 1; i < npages; i++) {
-            KASSERT(coremap[(addr / PAGE_SIZE) + i].alloc_size == 0);
             coremap[(addr / PAGE_SIZE) + i].status = fixed;
         }
         spinlock_release(&freemem_lock);
@@ -253,7 +251,7 @@ static paddr_t getfreeppages(unsigned long npages) {
 
     if (!isCoremapActive()) return 0; 
     spinlock_acquire(&freemem_lock);
-    for (i = 0, first = found = -1; i < nRamFrames; i++) {
+    for (i = 1, first = found = -1; i < nRamFrames; i++) {
         if (coremap[i].status == free) {
             if (i == 0 || coremap[i-1].status != free) 
                 first = i;
@@ -287,7 +285,6 @@ void page_free(paddr_t addr) {
     pos = addr / PAGE_SIZE;
 
     KASSERT(coremap[pos].status != fixed);
-    //KASSERT(coremap[pos].status != clean);
 
     // Per proteggere l'accesso alla coremap
     spinlock_acquire(&freemem_lock);
@@ -330,36 +327,41 @@ static int freeppages(paddr_t addr, unsigned long npages) {
 
 
 /**
- * Seleziona una sequenza contigua di frame di memoria utilizzabili come vittime 
- * per il TLB, escludendo quelli con stato "fixed" o "clean". 
- * Utilizza un algoritmo di selezione Round Robin per garantire una distribuzione 
- * equa delle vittime tra tutti i frame disponibili.
+ * Seleziona un frame (o una sequenza di frame contigui) della coremap da utilizzare come vittima
+ * per l'allocazione di nuova memoria. Utilizza un algoritmo di selezione Round Robin per garantire
+ * che le vittime siano distribuite equamente tra tutti i frame disponibili.
+ * 
+ * @param size Numero di frame contigui richiesti.
+ * @return L'indice del primo frame contiguo selezionato come vittima.
  */
 static int get_victim_coremap(int size) {
-    int victim = -1;      // Indica il frame corrente selezionato come potenziale vittima
-    int len = 0;          // Contatore per verificare la contiguità di "size" frame
-    KASSERT(size != 0);   // Verifica che la dimensione richiesta non sia zero
+    int victim = -1;      // Indice del frame selezionato come potenziale vittima
+    int len = 0;          // Contatore per il numero di frame contigui trovati finora
 
-    while (len < size) {  // Continua finché non si trovano "size" frame contigui non fissi
-        // Controlla se ci si avvicina al limite dell'array della coremap
-        // e resetta l'indice al primo frame (Round Robin)
+    KASSERT(size != 0);   // Verifica che venga richiesto almeno un frame
+
+    // Cerca una sequenza di "size" frame contigui idonei nella coremap
+    while (len < size) {
+        // Se si supera il limite della coremap, torna all'inizio (Round Robin)
         if (current_victim + (size - len) >= (unsigned int)nRamFrames) {
-            current_victim = 0;
+            current_victim = 1; // Evita di utilizzare il frame 0 (spesso riservato)
         }
 
-        // Registra l'indice corrente come potenziale vittima
+        // Registra il frame corrente come potenziale vittima
         victim = current_victim;
-        // Incrementa l'indice per il prossimo frame (Round Robin)
+
+        // Passa al frame successivo, con gestione circolare degli indici
         current_victim = (current_victim + 1) % nRamFrames;
 
-        // Controlla lo stato del frame corrente
+        // Verifica se il frame corrente può essere utilizzato come vittima
         if (coremap[victim].status != fixed && coremap[victim].status != clean) {
-            len += 1; // Aggiungi al contatore se il frame è idoneo
+            len += 1; // Incrementa il contatore se il frame è idoneo
         } else {
-            len = 0; // Reset del contatore se un frame non idoneo viene trovato
+            len = 0; // Reset del contatore se il frame corrente non è idoneo
         }
     }
 
     // Restituisce l'indice del primo frame contiguo trovato
     return victim - (len - 1);
 }
+

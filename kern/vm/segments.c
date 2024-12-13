@@ -153,7 +153,10 @@ int seg_load_page(struct segment* seg, vaddr_t va, paddr_t pa) {
     }
 
 
-    zero(pa, PAGE_SIZE);
+    if(pa > 0) {
+        zero(pa, PAGE_SIZE);
+
+    } 
 
 
     uio_kinit(&iov, &u, (void *)PADDR_TO_KVADDR(dest_paddr), read_len, file_offset, UIO_READ);

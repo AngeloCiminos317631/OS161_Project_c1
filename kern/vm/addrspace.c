@@ -117,7 +117,7 @@ void as_destroy(struct addrspace* as) {
 	pt_destroy(as->pt);
 	vfs_close(v); 
 	kfree(as);
-	swap_shutdown();
+	// swap_shutdown();  Commentato per RIMOZIONE
 }
 
 
