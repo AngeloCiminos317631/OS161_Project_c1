@@ -129,6 +129,7 @@ static paddr_t getppage_user(vaddr_t va, struct addrspace *as/*, int state*/) {
     vaddr_t victim_va; // Indirizzo virtuale della vittima
     paddr_t victim_pa; // Indirizzo fisico della vittima
     int result_swap_out; // Risultato della funzione swap_out
+    int result:
     
     // Per proteggere l'accesso alla coremap
     spinlock_acquire(&freemem_lock);
@@ -168,6 +169,7 @@ static paddr_t getppage_user(vaddr_t va, struct addrspace *as/*, int state*/) {
             pa = victim_pa  // Impostiamo l'indirizzo fisico della vittima come la pagina da restituire
             kprintf("SWAPPING line 276: (victim_pa: 0x%x victim_va: 0x%x)\n", victim_pa, victim_va); // Print per debug
             pos = victim_pa / PAGE_SIZE; // Impostiamo la posizione della vittima
+            result = tlb_remove_by_va(victim_va); //Rimozione dalla TLB dell'entry associata all'indirizzo virtuale della vittima (victim_va)
         } else {  
             pos = pa / PAGE_SIZE;
         }

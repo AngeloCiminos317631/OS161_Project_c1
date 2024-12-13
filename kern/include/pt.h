@@ -19,7 +19,7 @@
 struct pt_inner_entry {
     unsigned int valid;             // Indica se la pagina è valida (1: valida, 0: non valida)
     paddr_t pfn;                    // Physical Frame Number (numero di frame fisico)
-    off_t swapped_out;              // off_t è un tipo di dato che rappresenta un offset in un file
+    off_t swap_offset;              // off_t è un tipo di dato che rappresenta un offset in un file
                                     // Indica l'offset nel file di swap in cui è stata salvata la pagina
 };
 

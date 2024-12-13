@@ -88,7 +88,7 @@ void pt_destroy_inner(struct pt_outer_entry pt_inner) {
     // Itera su tutte le pagine della tabella interna
     for (i = 0; i < pt_inner.size; i++) {
         // Verifica se l'entry corrente è valida e che la pagina non sia stata "swappata"
-        if (pt_inner.pages[i].valid && pt_inner.pages[i].swapped_out != 1) {
+        if (pt_inner.pages[i].valid && pt_inner.pages[i].swap_offset != 1) {
             // Libera il frame fisico associato all'indice di pagina (PFN - Page Frame Number)
             page_free(pt_inner.pages[i].pfn);
         }
@@ -142,7 +142,7 @@ void pt_define_inner(struct pt_directory* pt, vaddr_t va) {
     for (i = 0; i < pt->pages[index].size; i++) {
         pt->pages[index].pages[i].valid = 0;
         pt->pages[index].pages[i].pfn = PFN_NOT_USED;
-        pt->pages[index].pages[i].swapped_out = -1;
+        pt->pages[index].pages[i].swap_offset = -1;
     }
 }
 
@@ -233,7 +233,7 @@ off_t pt_get_offset(struct pt_directory* pt, vaddr_t va) {
         // Controlla se la inner table è valida
         if (pt->pages[outer].pages[inner].valid) {
             // Recupera il valore del campo swapped_out
-            flag = pt->pages[outer].pages[inner].swapped_out;
+            flag = pt->pages[outer].pages[inner].swap_offset;
         } else {
             return -1; // Pagina non valida
         }
@@ -280,7 +280,7 @@ void pt_set_offset(struct pt_directory* pt, vaddr_t va, off_t offset) {
     pt->pages[inner].pages[outer].valid = 1;
 
     // Aggiorna il campo swapped_out con il nuovo offset
-    pt->pages[inner].pages[outer].swapped_out = offset;
+    pt->pages[inner].pages[outer].swap_offset = offset;
 
     // Imposta l'indirizzo fisico della pagina
     pt->pages[outer].pages[inner].pfn = pa;
