@@ -175,8 +175,8 @@ int vm_fault(int fault_type, vaddr_t fault_addr)
 
         // Aggiorna lo stato della pagina nella page table
         // Imposta lo stato della pagina come in memoria
-        pt_set_offset(as->pt, pageallign_va, pa);
-        pt_set_pa(as->pt, pageallign_va, -1);
+        pt_set_offset(as->pt, pageallign_va, -1);
+        pt_set_pa(as->pt, pageallign_va, pa);
     }
 
 

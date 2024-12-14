@@ -14,7 +14,7 @@
 #include <vm_tlb.h>
 
 // /**
-//  * Verifica e aggiorna le voci del TLB associate a un indirizzo fisico specifico.
+//  * Verifica e aggiorna le voci del TLB associate a un indirizzo fisico specifico.      POSSIBILE RIMOZIONE
 //  *
 //  * @param pa_victim Indirizzo fisico della pagina vittima.
 //  * @param new_va Nuovo indirizzo virtuale da associare all'indirizzo fisico.

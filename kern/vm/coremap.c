@@ -129,7 +129,7 @@ static paddr_t getppage_user(vaddr_t va, struct addrspace *as/*, int state*/) {
     vaddr_t victim_va; // Indirizzo virtuale della vittima
     paddr_t victim_pa; // Indirizzo fisico della vittima
     int result_swap_out; // Risultato della funzione swap_out
-    int result:
+    int result;
     
     // Per proteggere l'accesso alla coremap
     spinlock_acquire(&freemem_lock);
@@ -246,13 +246,15 @@ static paddr_t getppages(unsigned long npages) {
 }
 
 // Cerca npages pagine contigue libere nella coremap
-static paddr_t getfreeppages(unsigned long npages) {
-    paddr_t addr;    
-    long i, first, found;
+static int getfreeppages(unsigned long npages) {                // VALUTARE ADDR: Int o PAddr ??
+    int addr;    
+    volatile long i, first, found;
 
     if (!isCoremapActive()) return 0; 
     spinlock_acquire(&freemem_lock);
-    for (i = 1, first = found = -1; i < nRamFrames; i++) {
+    first = -1;
+    found = -1;
+    for (i = 1; i < nRamFrames; i++) {
         if (coremap[i].status == free) {
             if (i == 0 || coremap[i-1].status != free) 
                 first = i;

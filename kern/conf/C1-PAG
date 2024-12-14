@@ -36,4 +36,7 @@ options sfs			# Always use the file system
 
 # valutare di togliere o meno
 
+
+# VALUTARE SE INSERIRE OPTIONS DEI LAB
+
 options c1-pag  # opzione per progetto OS161 c1 - Paging

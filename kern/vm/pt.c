@@ -251,7 +251,6 @@ off_t pt_get_offset(struct pt_directory* pt, vaddr_t va) {
  * @param pt La page table in cui aggiornare lo stato.
  * @param va L'indirizzo virtuale della pagina.
  * @param state Il nuovo stato: 0 per in memoria, 1 per swappata.
- * @param pa L'indirizzo fisico della pagina.
  */
 void pt_set_offset(struct pt_directory* pt, vaddr_t va, off_t offset) {
     volatile unsigned int outer, inner, d;
@@ -283,5 +282,5 @@ void pt_set_offset(struct pt_directory* pt, vaddr_t va, off_t offset) {
     pt->pages[inner].pages[outer].swap_offset = offset;
 
     // Imposta l'indirizzo fisico della pagina
-    pt->pages[outer].pages[inner].pfn = pa;
+    //pt->pages[outer].pages[inner].pfn = pa;
 }

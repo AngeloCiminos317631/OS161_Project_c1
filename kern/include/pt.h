@@ -102,9 +102,9 @@ off_t pt_get_offset(struct pt_directory* pt, vaddr_t va);
  *
  * @param pt La page table in cui aggiornare lo stato.
  * @param va L'indirizzo virtuale della pagina.
- * @param state Il nuovo stato: 0 per in memoria, 1 per swappata.
+ * @param offset offset da impostare per la pagina della page table
  */
-void pt_set_offset(struct pt_directory* pt, vaddr_t va, off_t offset); //Non sono sicuro che off_t sia il tipo giusto per state
+void pt_set_offset(struct pt_directory* pt, vaddr_t va, off_t offset);
 
 /**
  * Invalida tutte le mappature in un contesto di page table.

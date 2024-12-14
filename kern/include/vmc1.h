@@ -27,7 +27,7 @@ void vm_shutdown(void);
  * Gestisce un page fault.
  * Risolve l'accesso a una pagina non mappata, recuperando l'indirizzo fisico o allocando una nuova pagina.
  */
-int vm_fault_handler(int fault_type, vaddr_t fault_addr);
+int vm_fault(int fault_type, vaddr_t fault_addr);
 
 
 /* TLB shootdown handling called from interprocessor_interrupt */
