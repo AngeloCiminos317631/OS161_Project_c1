@@ -15,6 +15,7 @@
 #include <vmc1.h>
 #include <vnode.h>
 #include <uio.h>
+#include <statistics.h>
 
 void zero(paddr_t paddr, size_t n) {
     bzero((void *)PADDR_TO_KVADDR(paddr), n);
@@ -152,10 +153,17 @@ int seg_load_page(struct segment* seg, vaddr_t va, paddr_t pa) {
         }
     }
 
-
+    KASSERT(pa > 0); // Verifica che l'indirizzo fisico sia valido
+    zero(pa, PAGE_SIZE); // Azzeriamo la pagina alla sua indirizzo fisico
     if(pa > 0) {
-        zero(pa, PAGE_SIZE);
-
+        // Incrementa le statistiche
+        if (read_len == 0){
+            increment_statistics(STATISTICS_PAGE_FAULT_ZERO); // Incrementa il contatore delle pagine azzerate
+        }
+        else{
+            increment_statistics(STATISTICS_ELF_FILE_READ); // Incrementa il contatore delle letture di file ELF
+            increment_statistics(STATISTICS_PAGE_FAULT_DISK); // Incrementa il contatore delle page fault dal disco
+        }
     } 
 
 

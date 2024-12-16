@@ -70,14 +70,10 @@ void coremap_init() {
 
 // Rilascia la memoria utilizzata dalla coremap e la disattiva
 void coremap_shutdown() {
-    int i;
     spinlock_acquire(&freemem_lock);
     coremapActive = 0;  // Disattiva la coremap
-    for(i = 0; i < nRamFrames; i++) {
-        page_free(i * PAGE_SIZE);  // Libera ogni pagina
-    }
-    kfree(coremap);  // Libera la memoria della coremap dal kernel space
     spinlock_release(&freemem_lock);
+    kfree(coremap);  // Libera la memoria della coremap dal kernel space
 }
  
 // void coremap_turn_off() {

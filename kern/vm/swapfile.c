@@ -6,6 +6,7 @@
 #include <vm.h>
 #include <bitmap.h>
 #include <swapfile.h>
+#include <statistics.h>
 
 // Creiamo una lista di entries
 static struct swap_page swap_list[NUM_PAGES];
@@ -82,6 +83,7 @@ int swap_out(paddr_t ppaddr, vaddr_t pvaddr) {
         swap_list[free_index].pvadd = pvaddr;
         swap_list[free_index].swap_offset = page_offset;
         spinlock_release(&filelock);
+        increment_statistics(STATISTICS_SWAP_FILE_WRITE); // Incrementa il contatore delle scritture sul file di swap
         return swap_list[free_index].swap_offset;
     }
 }
@@ -120,6 +122,9 @@ int swap_in(paddr_t ppadd, off_t offset) {
         return -1;
     }
 
+    increment_statistics(STATISTICS_PAGE_FAULT_DISK); // Incrementa il contatore delle page fault dal disco
+    //increment_statistics(STATISTICS_ELF_FILE_READ); // Incrementa il contatore delle letture da file ELF
+    increment_statistics(STATISTICS_SWAP_FILE_READ); // Incrementa il contatore delle letture da file di swap
     return swap_list[page_index].swap_offset;
 }
 

@@ -405,6 +405,7 @@ optfile c1-pag vm/pt.c # modulo per la gestione della page table
 optfile c1-pag vm/vmc1.c # modulo per la gestione della VM
 optfile c1-pag vm/swapfile.c #modulo per la gestione dello swapfile
 optfile c1-pag vm/vm_tlb.c #modulo per la gestione della TLB
+optfile c1-pag vm/statistics.c #modulo per generare le statistiche
 
 ########################################
 #                                      #

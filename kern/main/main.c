@@ -53,7 +53,7 @@
 
 #include "hello.h"
 #include <vmc1.h> // Inclusione header per gestione VM progetto
-
+#include "opt-os161.h" // Inclusione header per gestione VM progetto
 
 /*
  * These two pieces of data are maintained by the makefiles and build system.
@@ -152,6 +152,10 @@ shutdown(void)
 {
 
 	kprintf("Shutting down.\n");
+
+	#if OPT_OS161VM
+		vm_shutdown();
+	#endif
 
 	vfs_clearbootfs();
 	vfs_clearcurdir();

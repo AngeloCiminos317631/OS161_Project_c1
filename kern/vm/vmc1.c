@@ -13,6 +13,8 @@
 #include <coremap.h>
 #include <vmc1.h>
 #include <swapfile.h>
+#include <syscall.h>
+#include <statistics.h>
 
 // Variabile globale statica che tiene traccia dell'indice della prossima vittima TLB
 static unsigned int current_victim;
@@ -45,6 +47,7 @@ static unsigned int tlb_get_rr_victim(void) {
 void vm_bootstrap(void) {
     coremap_init();
     current_victim = 0; // È inizializzata a 0 e mantiene il suo valore tra le chiamate alla funzione.
+    init_statistics(); // Inizializza il sistema di statistiche
 }
 
 /* 
@@ -53,6 +56,8 @@ void vm_bootstrap(void) {
  */
 void vm_shutdown(void) {
     coremap_shutdown();
+    swap_shutdown(); // Chiude il file di swap
+    print_all_statistics(); // Stampa tutte le statistiche raccolte
 }
 
 /* 
@@ -86,14 +91,14 @@ int vm_fault(int fault_type, vaddr_t fault_addr)
 {
     int spl, new_page, result; //i, found
     unsigned int victim;
-    uint32_t ehi, elo;
+    uint32_t ehi, elo, victim_ehi, victim_elo;;
     struct addrspace *as;
     paddr_t pa;
     struct segment * seg;
     vaddr_t pageallign_va;
     off_t swap_offset; // Offset della pagina nello swap file
     off_t result_swap_in; // Risultato della funzione swap_in
-
+    
     //TODO
     // fault_addr &= PAGE_FRAME; //Per eliminare l'offset e lavorare con l'indirizzo base della pagina
     pageallign_va = fault_addr & PAGE_FRAME;
@@ -102,6 +107,7 @@ int vm_fault(int fault_type, vaddr_t fault_addr)
     switch (fault_type) {
         case VM_FAULT_READONLY:
             // Se la fault è su una pagina di sola lettura, restituiamo EACCES
+            sys__exit(1); // Termina il processo
             return EACCES; // Restituisce un errore di accesso per permessi mancanti (in questo caso in scrittura)
         case VM_FAULT_READ:
         case VM_FAULT_WRITE:
@@ -141,6 +147,9 @@ int vm_fault(int fault_type, vaddr_t fault_addr)
 
     // Cerchiamo l'indirizzo fisico corrispondente nel page table
     pa = pt_get_pa(as->pt, fault_addr);
+    if (pa > 0) {
+        increment_statistics(STATISTICS_TLB_RELOAD); // Incrementa il contatore delle ricariche TLB
+    }
     // Verifichiamo se la pagina è stata swappata
     swap_offset = pt_get_offset(as->pt, fault_addr);
 
@@ -160,6 +169,7 @@ int vm_fault(int fault_type, vaddr_t fault_addr)
             // Azzerando la pagina, garantiamo che sia inizializzata con uno stato noto di tutti zeri.
 
             bzero((void *)PADDR_TO_KVADDR(pa), PAGE_SIZE); // Azzeriamo la pagina alla sua indirizzo fisico
+            increment_statistics(STATISTICS_PAGE_FAULT_ZERO); // Incrementa il contatore delle pagine azzerate
         }
         new_page = 1;
     }
@@ -188,6 +198,7 @@ int vm_fault(int fault_type, vaddr_t fault_addr)
             return EFAULT;
     }    
 
+    increment_statistics(STATISTICS_TLB_FAULT); // Incrementa il contatore dei page fault TLB
     // Disabilita le interruzioni per gestire la TLB in modo sicuro
     spl = splhigh();
 
@@ -198,9 +209,16 @@ int vm_fault(int fault_type, vaddr_t fault_addr)
     ehi = pageallign_va;
     elo = pa | TLBLO_VALID;
 
-    if (seg->p_permission == (PF_R | PF_W) || seg->p_permission == PF_S)
+    if (seg->p_permission == (PF_R | PF_W) || seg->p_permission == PF_S || seg || seg->p_permission == PF_W)
     {
         elo = elo | TLBLO_DIRTY;
+    }
+
+    tlb_read(&victim_ehi, &victim_elo, victim); // Legge la vittima corrente
+    if ((victim_elo & TLBLO_VALID) == 1){ // Se la vittima è valida
+        increment_statistics(STATISTICS_TLB_FAULT_REPLACE); // Incrementa il contatore dei page fault TLB sostituiti
+    }else{
+        increment_statistics(STATISTICS_TLB_FAULT_FREE); // Incrementa il contatore dei page fault TLB liberati
     }
 
     tlb_write(ehi, elo, victim);

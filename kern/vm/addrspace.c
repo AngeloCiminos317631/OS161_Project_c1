@@ -45,6 +45,8 @@
 #include <vm_tlb.h>
 // Aggiunta header file per la gestione della VM
 #include <vmc1.h>
+//Aggiunta header file per la generazione delle statistiche
+#include <statistics.h>
 
 
 /*
@@ -149,7 +151,8 @@ void as_activate(void)
     for (i = 0; i < NUM_TLB; i++) {
         tlb_write(TLBHI_INVALID(i), TLBLO_INVALID(), i);
     }
-
+	// Incrementa il contatore delle statistiche per le TLB invalidate
+	increment_statistics(STATISTICS_TLB_INVALIDATE);
     // Ripristina le interruzioni al livello precedente.
     splx(spl);
 }
@@ -181,13 +184,36 @@ void as_deactivate(void) {
     for (i = 0; i < NUM_TLB; i++) {
         tlb_write(TLBHI_INVALID(i), TLBLO_INVALID(), i);
     }
-
+	// Incrementa il contatore delle statistiche per le TLB invalidate
+	increment_statistics(STATISTICS_TLB_INVALIDATE);
     // Riabilita gli interrupt ora che il TLB è stato pulito.
     splx(spl);
 }
 
-int
-as_define_region(struct addrspace *as, uint32_t type, uint32_t offset ,vaddr_t vaddr, size_t memsize,
+#if OPT_DUMBVM
+/*
+ * Configura un segmento all'indirizzo virtuale VADDR di dimensione MEMSIZE. 
+ * Il segmento in memoria si estende da VADDR fino a (ma non incluso) VADDR+MEMSIZE.
+ *
+ * I flag READABLE, WRITEABLE e EXECUTABLE indicano se i permessi di lettura, 
+ * scrittura o esecuzione devono essere abilitati per il segmento. 
+ * Attualmente, questi flag vengono ignorati. Quando implementerai il sistema 
+ * di memoria virtuale (VM), potresti volerli utilizzare.
+ */
+int as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
+                 int readable, int writeable, int executable)
+{
+    (void)as;        // Evita warning su variabili non utilizzate
+    (void)vaddr;
+    (void)memsize;
+    (void)readable;
+    (void)writeable;
+    (void)executable;
+    return ENOSYS;   // Indica che la funzionalità non è ancora implementata
+}
+#else
+
+int as_define_region(struct addrspace *as, uint32_t type, uint32_t offset ,vaddr_t vaddr, size_t memsize,
 		 uint32_t filesize, int readable, int writeable, int executable, int seg_n, struct vnode *v)
 {
 	int res = 1;
@@ -210,6 +236,7 @@ as_define_region(struct addrspace *as, uint32_t type, uint32_t offset ,vaddr_t v
 	KASSERT(res == 0);	// segment defined correctly
 	return res;
 }
+#endif
 
 int
 as_prepare_load(struct addrspace *as)
