@@ -209,7 +209,7 @@ int vm_fault(int fault_type, vaddr_t fault_addr)
     ehi = pageallign_va;
     elo = pa | TLBLO_VALID;
 
-    if (seg->p_permission == (PF_R | PF_W) || seg->p_permission == PF_S || seg || seg->p_permission == PF_W)
+    if (seg->p_permission == (PF_R | PF_W) || seg->p_permission == PF_S || seg->p_permission == PF_W)
     {
         elo = elo | TLBLO_DIRTY;
     }

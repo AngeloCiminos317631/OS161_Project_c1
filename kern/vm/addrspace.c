@@ -158,40 +158,6 @@ void as_activate(void)
 }
 
 /*
- * Questa funzione invalida tutte le entry nella Translation Lookaside Buffer (TLB) 
- * per il processo corrente. È utilizzata per garantire che vecchie mappature di indirizzi virtuali 
- * non vengano utilizzate erroneamente quando il processo non è attivo. La funzione disabilita 
- * temporaneamente gli interrupt per proteggere la coerenza della TLB durante l'operazione.
- */
-void as_deactivate(void) {
-    int i, spl;
-    struct addrspace *as;
-
-    // Ottiene lo spazio degli indirizzi (address space) associato al processo corrente
-    as = proc_getas();
-    if (as == NULL) {
-        // Se non c'è un address space (ad esempio, è un thread del kernel),
-        // non è necessario fare nulla.
-        return;
-    }
-
-    // Disabilita gli interrupt per garantire che la modifica alla TLB non venga interrotta.
-    spl = splhigh();
-
-    // Invalida tutte le entry nella TLB.
-    // Questo rimuove tutte le mappature degli indirizzi virtuali per il processo corrente,
-    // assicurandosi che non vengano riutilizzate per errore.
-    for (i = 0; i < NUM_TLB; i++) {
-        tlb_write(TLBHI_INVALID(i), TLBLO_INVALID(), i);
-    }
-	// Incrementa il contatore delle statistiche per le TLB invalidate
-	increment_statistics(STATISTICS_TLB_INVALIDATE);
-    // Riabilita gli interrupt ora che il TLB è stato pulito.
-    splx(spl);
-}
-
-#if OPT_DUMBVM
-/*
  * Configura un segmento all'indirizzo virtuale VADDR di dimensione MEMSIZE. 
  * Il segmento in memoria si estende da VADDR fino a (ma non incluso) VADDR+MEMSIZE.
  *
@@ -200,18 +166,6 @@ void as_deactivate(void) {
  * Attualmente, questi flag vengono ignorati. Quando implementerai il sistema 
  * di memoria virtuale (VM), potresti volerli utilizzare.
  */
-int as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
-                 int readable, int writeable, int executable)
-{
-    (void)as;        // Evita warning su variabili non utilizzate
-    (void)vaddr;
-    (void)memsize;
-    (void)readable;
-    (void)writeable;
-    (void)executable;
-    return ENOSYS;   // Indica che la funzionalità non è ancora implementata
-}
-#else
 
 int as_define_region(struct addrspace *as, uint32_t type, uint32_t offset ,vaddr_t vaddr, size_t memsize,
 		 uint32_t filesize, int readable, int writeable, int executable, int seg_n, struct vnode *v)
@@ -236,7 +190,6 @@ int as_define_region(struct addrspace *as, uint32_t type, uint32_t offset ,vaddr
 	KASSERT(res == 0);	// segment defined correctly
 	return res;
 }
-#endif
 
 int
 as_prepare_load(struct addrspace *as)
