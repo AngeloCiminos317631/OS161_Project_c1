@@ -107,6 +107,7 @@ struct addrspace {
 struct addrspace *as_create(void);
 int               as_copy(struct addrspace *src, struct addrspace **ret);
 void              as_activate(void);
+void              as_deactivate(void); // Aggiunta prototipo per disattivazione Address Space
 void              as_destroy(struct addrspace *);
 
 #if OPT_DUMBVM

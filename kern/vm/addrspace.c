@@ -158,6 +158,50 @@ void as_activate(void)
 }
 
 /*
+ * Funzione: as_deactivate
+ * Scopo: Disattiva l'address space associato al processo corrente.
+ * Questa operazione svuota la TLB (Translation Lookaside Buffer) per assicurare
+ * che le traduzioni delle vecchie pagine virtuali non siano più valide.
+ */
+void
+as_deactivate(void)
+{
+    int i, spl;
+    struct addrspace *as;
+
+    /* Recupera l'address space del processo corrente */
+    as = proc_getas();
+    
+    if (as == NULL) {
+        /*
+         * Se il processo corrente non ha un address space (ad esempio, 
+         * un kernel thread), non è necessario fare nulla. 
+         * L'address space precedente rimane attivo.
+         */
+        return;
+    }
+
+    /*
+     * Disabilita gli interrupt su questa CPU per garantire la consistenza
+     * mentre si manipola la TLB. Questo previene condizioni di race
+     * durante la modifica delle entry nella TLB.
+     */
+    spl = splhigh();
+
+    /* Itera su tutte le entry della TLB e le invalida una per una */
+    for (i = 0; i < NUM_TLB; i++) {
+        tlb_write(TLBHI_INVALID(i), TLBLO_INVALID(), i);
+    }
+
+    /* Incrementa una statistica che traccia quante volte la TLB è stata invalidata */
+    increment_statistics(STATISTICS_TLB_INVALIDATE);
+
+    /* Ripristina il livello degli interrupt al valore precedente */
+    splx(spl);
+}
+
+
+/*
  * Configura un segmento all'indirizzo virtuale VADDR di dimensione MEMSIZE. 
  * Il segmento in memoria si estende da VADDR fino a (ma non incluso) VADDR+MEMSIZE.
  *
