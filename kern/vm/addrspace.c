@@ -38,6 +38,7 @@
 #include <vfs.h>
 #include <mips/tlb.h>
 #include <swapfile.h>
+#include <segments.h>
 
 // Aggiunta header file per la Coremap
 #include <coremap.h>

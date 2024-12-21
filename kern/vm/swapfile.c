@@ -90,7 +90,6 @@ int swap_out(paddr_t ppaddr, vaddr_t pvaddr) {
 
 
 int swap_in(paddr_t ppadd, off_t offset) {
-    unsigned int swap_index;
     struct iovec iov;
     struct uio u;
     int page_index;

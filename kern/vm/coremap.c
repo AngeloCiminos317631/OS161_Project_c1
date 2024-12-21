@@ -27,7 +27,7 @@ static struct spinlock stealmem_lock = SPINLOCK_INITIALIZER;
 
 // Funzioni di utilità e helper per la gestione della coremap
 static int isCoremapActive(void);
-static paddr_t getfreeppages(unsigned long npages);
+static int getfreeppages(unsigned long npages);
 static int freeppages(paddr_t addr, unsigned long npages);
 static paddr_t getppages(unsigned long npages);
 static paddr_t getppage_user(vaddr_t va, struct addrspace *as);
@@ -88,6 +88,46 @@ void coremap_shutdown() {
 //     spinlock_release(&freemem_lock);
 // }
 
+
+/**
+ * Seleziona un frame (o una sequenza di frame contigui) della coremap da utilizzare come vittima
+ * per l'allocazione di nuova memoria. Utilizza un algoritmo di selezione Round Robin per garantire
+ * che le vittime siano distribuite equamente tra tutti i frame disponibili.
+ * 
+ * @param size Numero di frame contigui richiesti.
+ * @return L'indice del primo frame contiguo selezionato come vittima.
+ */
+static int get_victim_coremap(int size) {
+    int victim = -1;      // Indice del frame selezionato come potenziale vittima
+    int len = 0;          // Contatore per il numero di frame contigui trovati finora
+
+    KASSERT(size != 0);   // Verifica che venga richiesto almeno un frame
+
+    // Cerca una sequenza di "size" frame contigui idonei nella coremap
+    while (len < size) {
+        // Se si supera il limite della coremap, torna all'inizio (Round Robin)
+        if (current_victim + (size - len) >= (unsigned int)nRamFrames) {
+            current_victim = 1; // Evita di utilizzare il frame 0 (spesso riservato)
+        }
+
+        // Registra il frame corrente come potenziale vittima
+        victim = current_victim;
+
+        // Passa al frame successivo, con gestione circolare degli indici
+        current_victim = (current_victim + 1) % nRamFrames;
+
+        // Verifica se il frame corrente può essere utilizzato come vittima
+        if (coremap[victim].status != fixed && coremap[victim].status != clean) {
+            len += 1; // Incrementa il contatore se il frame è idoneo
+        } else {
+            len = 0; // Reset del contatore se il frame corrente non è idoneo
+        }
+    }
+
+    // Restituisce l'indice del primo frame contiguo trovato
+    return victim - (len - 1);
+}
+
 // Sezione 2: Funzioni di allocazione per il kernel e utente
 
 // Alloca npages pagine contigue per il kernel e restituisce l'indirizzo virtuale
@@ -110,7 +150,7 @@ paddr_t page_alloc(vaddr_t vaddr/*, int state*/) {
     vm_can_sleep();
 
     as_cur = proc_getas();
-    KASSERT(as_cur != NULL)
+    KASSERT(as_cur != NULL);
 
     pa = getppage_user(vaddr, as_cur/*, state*/);  // Richiede una pagina fisica
     return pa;
@@ -162,7 +202,7 @@ static paddr_t getppage_user(vaddr_t va, struct addrspace *as/*, int state*/) {
             pt_set_pa(as->pt, victim_va, 0);
             // Verifica e aggiorna le voci del TLB associate a un indirizzo fisico vittima, con il nuovo VA. ( CONTROLLARE pa mi sembra errato )
             //KASSERT(state == state); DA VALUTARE INSIEME A state
-            pa = victim_pa  // Impostiamo l'indirizzo fisico della vittima come la pagina da restituire
+            pa = victim_pa; // Impostiamo l'indirizzo fisico della vittima come la pagina da restituire
             pos = victim_pa / PAGE_SIZE; // Impostiamo la posizione della vittima
             result = tlb_remove_by_va(victim_va); //Rimozione dalla TLB dell'entry associata all'indirizzo virtuale della vittima (victim_va)
             KASSERT(result == 0);
@@ -199,8 +239,6 @@ static paddr_t getppages(unsigned long npages) {
         spinlock_acquire(&stealmem_lock);
         addr = ram_stealmem(npages);
         spinlock_release(&stealmem_lock);
-        // dopo aver rubato memoria dobbiamo avere necessariamente l'indirizzo fisico diverso da 0, se no viene generato un crash del kernel
-        KASSERT(addr != 0);
     }
     if(addr == 0) {
         // Se addr è ancora 0, scegliamo una vittima da svuotare tramite Round Robin
@@ -322,45 +360,5 @@ static int freeppages(paddr_t addr, unsigned long npages) {
     spinlock_release(&freemem_lock);
 
     return 1;
-}
-
-
-/**
- * Seleziona un frame (o una sequenza di frame contigui) della coremap da utilizzare come vittima
- * per l'allocazione di nuova memoria. Utilizza un algoritmo di selezione Round Robin per garantire
- * che le vittime siano distribuite equamente tra tutti i frame disponibili.
- * 
- * @param size Numero di frame contigui richiesti.
- * @return L'indice del primo frame contiguo selezionato come vittima.
- */
-static int get_victim_coremap(int size) {
-    int victim = -1;      // Indice del frame selezionato come potenziale vittima
-    int len = 0;          // Contatore per il numero di frame contigui trovati finora
-
-    KASSERT(size != 0);   // Verifica che venga richiesto almeno un frame
-
-    // Cerca una sequenza di "size" frame contigui idonei nella coremap
-    while (len < size) {
-        // Se si supera il limite della coremap, torna all'inizio (Round Robin)
-        if (current_victim + (size - len) >= (unsigned int)nRamFrames) {
-            current_victim = 1; // Evita di utilizzare il frame 0 (spesso riservato)
-        }
-
-        // Registra il frame corrente come potenziale vittima
-        victim = current_victim;
-
-        // Passa al frame successivo, con gestione circolare degli indici
-        current_victim = (current_victim + 1) % nRamFrames;
-
-        // Verifica se il frame corrente può essere utilizzato come vittima
-        if (coremap[victim].status != fixed && coremap[victim].status != clean) {
-            len += 1; // Incrementa il contatore se il frame è idoneo
-        } else {
-            len = 0; // Reset del contatore se il frame corrente non è idoneo
-        }
-    }
-
-    // Restituisce l'indice del primo frame contiguo trovato
-    return victim - (len - 1);
 }
 

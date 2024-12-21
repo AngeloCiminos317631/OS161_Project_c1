@@ -3,7 +3,7 @@
 
 #include <types.h>
 
-#define PAGE_SIZE 32768 //4KB
+//#define PAGE_SIZE 32768 //4KB
 #define FILE_SIZE 9*1024*1024 //9MB
 #define NUM_PAGES FILE_SIZE / PAGE_SIZE
 

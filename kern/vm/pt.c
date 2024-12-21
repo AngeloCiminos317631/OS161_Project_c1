@@ -273,13 +273,13 @@ void pt_set_offset(struct pt_directory* pt, vaddr_t va, off_t offset) {
     }
 
     // Assicurati che la outer table sia valida
-    KASSERT(pt->pages[inner].valid == 1);
+    KASSERT(pt->pages[outer].valid == 1);
 
     // Marca la pagina come valida
-    pt->pages[inner].pages[outer].valid = 1;
+    pt->pages[outer].pages[inner].valid = 1;
 
     // Aggiorna il campo swapped_out con il nuovo offset
-    pt->pages[inner].pages[outer].swap_offset = offset;
+    pt->pages[outer].pages[inner].swap_offset = offset;
 
     // Imposta l'indirizzo fisico della pagina
     //pt->pages[outer].pages[inner].pfn = pa;

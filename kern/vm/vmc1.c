@@ -15,6 +15,7 @@
 #include <swapfile.h>
 #include <syscall.h>
 #include <statistics.h>
+#include <segments.h>
 
 // Variabile globale statica che tiene traccia dell'indice della prossima vittima TLB
 static unsigned int current_victim;
@@ -215,13 +216,14 @@ int vm_fault(int fault_type, vaddr_t fault_addr)
     }
 
     tlb_read(&victim_ehi, &victim_elo, victim); // Legge la vittima corrente
-    if ((victim_elo & TLBLO_VALID) == 1){ // Se la vittima è valida
+    if ( victim_elo & TLBLO_VALID ){ // Se la vittima è valida
         increment_statistics(STATISTICS_TLB_FAULT_REPLACE); // Incrementa il contatore dei page fault TLB sostituiti
     }else{
         increment_statistics(STATISTICS_TLB_FAULT_FREE); // Incrementa il contatore dei page fault TLB liberati
     }
 
     tlb_write(ehi, elo, victim);
+
 
     splx(spl);  // Ripristina le interruzioni
 

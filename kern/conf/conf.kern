@@ -397,15 +397,15 @@ file      main/menu.c
 
 
 # OS161 Project
-defoption c1-pag     # aggiungere file opzionali per progetto
-optfile c1-pag vm/coremap.c  # modulo coremap
-optfile c1-pag vm/addrspace.c # modulo per gestione addrespace
-optfile c1-pag vm/segments.c # modulo per la gestione dei segments
-optfile c1-pag vm/pt.c # modulo per la gestione della page table
-optfile c1-pag vm/vmc1.c # modulo per la gestione della VM
-optfile c1-pag vm/swapfile.c #modulo per la gestione dello swapfile
-optfile c1-pag vm/vm_tlb.c #modulo per la gestione della TLB
-optfile c1-pag vm/statistics.c #modulo per generare le statistiche
+defoption c1_pag     # aggiungere file opzionali per progetto
+optfile c1_pag vm/coremap.c  # modulo coremap
+optfile c1_pag vm/addrspace.c # modulo per gestione addrespace
+optfile c1_pag vm/segments.c # modulo per la gestione dei segments
+optfile c1_pag vm/pt.c # modulo per la gestione della page table
+optfile c1_pag vm/vmc1.c # modulo per la gestione della VM
+optfile c1_pag vm/swapfile.c #modulo per la gestione dello swapfile
+optfile c1_pag vm/vm_tlb.c #modulo per la gestione della TLB
+optfile c1_pag vm/statistics.c #modulo per generare le statistiche
 
 ########################################
 #                                      #
