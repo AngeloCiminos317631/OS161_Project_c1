@@ -281,6 +281,4 @@ void pt_set_offset(struct pt_directory* pt, vaddr_t va, off_t offset) {
     // Aggiorna il campo swapped_out con il nuovo offset
     pt->pages[outer].pages[inner].swap_offset = offset;
 
-    // Imposta l'indirizzo fisico della pagina
-    //pt->pages[outer].pages[inner].pfn = pa;
 }

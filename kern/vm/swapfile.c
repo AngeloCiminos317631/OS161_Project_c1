@@ -98,7 +98,6 @@ int swap_in(paddr_t ppadd, off_t offset) {
     timesIn++;
 
     KASSERT(offset >= 0); // Verifica che l'offset sia positivo
-    //KASSERT(pvadd == pvadd); // Verifica che l'indirizzo virtuale sia valido
     page_index = offset/PAGE_SIZE; // Calcola l'indice della pagina nel file di swap
     spinlock_acquire(&filelock);
     // Fix del descriptor dello swapfile
@@ -122,7 +121,6 @@ int swap_in(paddr_t ppadd, off_t offset) {
     }
 
     increment_statistics(STATISTICS_PAGE_FAULT_DISK); // Incrementa il contatore delle page fault dal disco
-    //increment_statistics(STATISTICS_ELF_FILE_READ); // Incrementa il contatore delle letture da file ELF
     increment_statistics(STATISTICS_SWAP_FILE_READ); // Incrementa il contatore delle letture da file di swap
     return swap_list[page_index].swap_offset;
 }

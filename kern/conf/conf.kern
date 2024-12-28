@@ -342,9 +342,7 @@ file      proc/proc.c
 
 file      vm/kmalloc.c
 
-#defoption dumbvm                 #Sembrerebbe relativa a vecchia conf : verificare
-#optofffile dumbvm vm/addrspace.c
-#
+
 # Network
 # (nothing here yet)
 #
@@ -393,10 +391,14 @@ file      main/menu.c
 #                                      #
 ########################################
 #defoption dumbvm
-#optofffile dumbvm vm/addrspace.c  #relativa a vecchia conf: verificare
+#optofffile dumbvm vm/addrspace.c
 
+########################################
+#                                      #
+#               C1_PAG                 #   
+#                                      #
+########################################
 
-# OS161 Project
 defoption c1_pag     # aggiungere file opzionali per progetto
 optfile c1_pag vm/coremap.c  # modulo coremap
 optfile c1_pag vm/addrspace.c # modulo per gestione addrespace
@@ -462,7 +464,6 @@ file		test/kmalloctest.c
 file		test/fstest.c
 optfile net	test/nettest.c
 
-# Probabilmente non utilizzati ( valutare di togliere per errori COMPILAZIONE )
 
 ########################################
 #                                      #
@@ -476,7 +477,7 @@ optfile hello main/hello.c
 defoption synch
 # lab2
 defoption syscalls
-optfile syscalls syscall/proc_syscalls.c  # Controllare utilizzo options syscalls aggiunta anche configurazione per RUN
+optfile syscalls syscall/proc_syscalls.c
 optfile syscalls syscall/file_syscalls.c
 # lab4
 defoption waitpid

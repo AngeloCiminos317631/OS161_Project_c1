@@ -100,8 +100,7 @@ int vm_fault(int fault_type, vaddr_t fault_addr)
     off_t swap_offset; // Offset della pagina nello swap file
     off_t result_swap_in; // Risultato della funzione swap_in
     
-    //TODO
-    // fault_addr &= PAGE_FRAME; //Per eliminare l'offset e lavorare con l'indirizzo base della pagina
+
     pageallign_va = fault_addr & PAGE_FRAME;
 
     // Gestione dei diversi tipi di fault
@@ -191,7 +190,6 @@ int vm_fault(int fault_type, vaddr_t fault_addr)
     }
 
 
-    // TODO: Implementazione delL' aggiornamento della TLB
     // Aggiornare o modificare il codice
     if(new_page == 1 && seg->p_permission != PF_S) {
         result = seg_load_page(seg, fault_addr, pa); 
@@ -231,7 +229,6 @@ int vm_fault(int fault_type, vaddr_t fault_addr)
     return 0;  // Restituisci un errore
 }
 
-    //TODO - Per il momento solo una copia di quello che veniva fatto con DUMBVM
     void
     vm_tlbshootdown(const struct tlbshootdown *ts)
     {

@@ -76,17 +76,6 @@ void coremap_shutdown() {
     kfree(coremap);  // Libera la memoria della coremap dal kernel space
 }
  
-// void coremap_turn_off() {
-//     spinlock_acquire(&freemem_lock);
-//     coremapActive = 0;
-//     spinlock_release(&freemem_lock);
-// }
-//                                         //Commentate per RIMOZIONE
-// void coremap_turn_on() {
-//     spinlock_acquire(&freemem_lock);
-//     coremapActive = 1;
-//     spinlock_release(&freemem_lock);
-// }
 
 
 /**
@@ -200,8 +189,6 @@ static paddr_t getppage_user(vaddr_t va, struct addrspace *as/*, int state*/) {
             // Aggiorniamo lo stato della pagina nel page table per segnare la vittima come "swapped out"
             pt_set_offset(as->pt, victim_va, result_swap_out);
             pt_set_pa(as->pt, victim_va, 0);
-            // Verifica e aggiorna le voci del TLB associate a un indirizzo fisico vittima, con il nuovo VA. ( CONTROLLARE pa mi sembra errato )
-            //KASSERT(state == state); DA VALUTARE INSIEME A state
             pa = victim_pa; // Impostiamo l'indirizzo fisico della vittima come la pagina da restituire
             pos = victim_pa / PAGE_SIZE; // Impostiamo la posizione della vittima
             result = tlb_remove_by_va(victim_va); //Rimozione dalla TLB dell'entry associata all'indirizzo virtuale della vittima (victim_va)
@@ -280,7 +267,7 @@ static paddr_t getppages(unsigned long npages) {
 }
 
 // Cerca npages pagine contigue libere nella coremap
-static int getfreeppages(unsigned long npages) {                // VALUTARE ADDR: Int o PAddr ??
+static int getfreeppages(unsigned long npages) {                
     int addr;    
     volatile long i, first, found;
 

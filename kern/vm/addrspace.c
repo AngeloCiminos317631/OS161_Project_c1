@@ -62,14 +62,6 @@ struct addrspace* as_create(void) {
         return NULL;
     }
 
-	// Valutare per prossime modifiche
-
-    // as->page_table = pt_create(); // Creazione della page table
-    // if (as->page_table == NULL) {
-    //     kfree(as);
-    //     return NULL;
-    // }
-
     // creazione segmenti per le tre parti dell'addrspace
 	as->code = seg_create();
 	as->data = seg_create();
@@ -104,12 +96,7 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 }
 
 void as_destroy(struct addrspace* as) {
-   
-   // Valutare per prossime modifiche
-   
-    // if (as->page_table != NULL) {
-    //     pt_destroy(as->page_table); // Distruzione della page table
-    // }
+
 
 	struct vnode *v;
 	KASSERT(as != NULL);
@@ -121,7 +108,7 @@ void as_destroy(struct addrspace* as) {
 	pt_destroy(as->pt);
 	vfs_close(v); 
 	kfree(as);
-	// swap_shutdown();  Commentato per RIMOZIONE
+
 }
 
 

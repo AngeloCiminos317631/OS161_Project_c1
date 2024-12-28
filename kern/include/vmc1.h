@@ -31,7 +31,6 @@ int vm_fault(int fault_type, vaddr_t fault_addr);
 
 
 /* TLB shootdown handling called from interprocessor_interrupt */
-// VALUTARE PERCHE QUI
 void vm_tlbshootdown(const struct tlbshootdown *ts);
 
 #endif

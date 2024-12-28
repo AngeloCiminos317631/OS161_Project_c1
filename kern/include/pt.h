@@ -106,11 +106,5 @@ off_t pt_get_offset(struct pt_directory* pt, vaddr_t va);
  */
 void pt_set_offset(struct pt_directory* pt, vaddr_t va, off_t offset);
 
-/**
- * Invalida tutte le mappature in un contesto di page table.
- * Funzione eventualmente da implementare nei prossimi commit.
- * @param pt Puntatore alla struttura di page table da invalidare.
- */
-// void pt_invalidate_context(struct pt_directory* pt);
 
 #endif /* PT_H */
