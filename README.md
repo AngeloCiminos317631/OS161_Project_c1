@@ -141,6 +141,45 @@ if (va >= base_seg1 && va <= top_seg1) {
 }
 ```
 ### coremap.c
+
+#### Panoramica
+Il modulo **coremap.c** è responsabile della gestione della memoria fisica nel sistema. Tiene traccia dello stato di ogni frame di memoria, supporta l'allocazione e il rilascio sia per il kernel che per i processi utente, e implementa meccanismi di rimpiazzo delle pagine per garantire un utilizzo efficiente della memoria. La sincronizzazione è assicurata tramite spinlock, che protegge le operazioni sulla coremap da accessi concorrenti.
+
+---
+
+#### Strutture Dati
+- **`enum status_t`**: Definisce lo stato di ogni frame nella coremap:
+  - `fixed`: Frame riservato al kernel.
+  - `free`: Frame disponibile per nuove allocazioni.
+  - `dirty`: Frame in uso da un processo utente.
+  - `clean`: Frame rubabile (non in uso attivo).
+  
+- **`struct coremap_entry`**: Ogni elemento rappresenta un frame fisico e include:
+  - `as`: Puntatore allo spazio degli indirizzi associato (se presente).
+  - `status`: Stato attuale del frame (basato su `status_t`).
+  - `vaddr`: Indirizzo virtuale associato a questa pagina fisica.
+  - `alloc_size`: Dimensione del blocco contiguo (utile per allocazioni multiple).
+
+---
+
+#### Funzioni
+
+**Inizializzazione**
+- `coremap_init()`: Configura la coremap durante l'avvio del sistema, calcolando i frame disponibili e classificandoli come riservati, liberi o kernel.
+- `coremap_shutdown()`: Libera risorse e stampa eventuali statistiche diagnostiche sulla gestione della memoria.
+
+**Gestione della Memoria**
+- `alloc_kpages(npages)`: Alloca un blocco contiguo di **npages** per il kernel e restituisce l'indirizzo fisico iniziale.
+- `free_kpages(addr)`: Libera un blocco di pagine allocate dal kernel, aggiornandone lo stato nella coremap.
+- `page_alloc(vaddr)`: Assegna una pagina fisica a un indirizzo virtuale utente, aggiornando la struttura `coremap_entry`.
+- `page_free(paddr)`: Rilascia una pagina fisica precedentemente allocata.
+
+**Strategia di Riampiazzo**
+- **Round Robin**: Utilizzato per selezionare una vittima da rimpiazzare quando non ci sono frame liberi.
+- **Swap-out**: Scrive una pagina fisica su disco (file di swap) per liberare spazio in memoria principale, facilitando il rimpiazzo.
+
+---
+
 ### pt.c
 
 Il file `pt.c` implementa un sistema per la gestione delle **page tables** (tabelle delle pagine) in un sistema di memoria virtuale. In particolare, il codice si occupa della gestione di una struttura a due livelli: una **outer table** (directory di pagine) e delle **inner tables** (tabelle interne) per la traduzione degli indirizzi virtuali in indirizzi fisici.
@@ -403,8 +442,68 @@ Quando le statistiche vengono stampate, vengono effettuati dei controlli di cons
 Se uno di questi controlli fallisce, viene emesso un avviso tramite `kprintf`.
 
 ### swapfile.c
+
 ### vm_tlb.c
+
+#### Panoramica
+Il modulo **vm_tlb.c** gestisce le operazioni sulla TLB (Translation Lookaside Buffer), estendendo le funzionalità di base ( presenti in **mips/tlb.c** ). La funzione principale di questo file è la gestione delle voci nel TLB relative agli indirizzi virtuali. Quando un indirizzo virtuale non è più necessario nel TLB, viene rimosso per ottimizzare l'uso della cache. La rimozione della voce avviene con la funzione `tlb_remove_by_va()`, che cerca e invalida una voce del TLB corrispondente all'indirizzo virtuale fornito.
+
+---
+
+#### Strutture Dati
+
+---
+
+#### Funzioni
+
+- **`tlb_remove_by_va(vaddr_t va)`**: 
+  Rimuove una voce dal TLB associata a un indirizzo virtuale dato (va).
+  1. Ottiene lo spazio degli indirizzi del processo corrente con `proc_getas()`.
+  2. Disabilita le interruzioni usando `splhigh()` per evitare condizioni di gara.
+  3. Cerca la voce nel TLB corrispondente all'indirizzo virtuale con `tlb_probe()`.
+  4. Se la voce è trovata, viene invalidata usando `tlb_write()`.
+  5. Ripristina lo stato delle interruzioni con `splx()`.
+
+  Se la voce non è presente nel TLB, la funzione non fa nulla. La funzione restituisce `0` per indicare che l'operazione è stata completata con successo.
+
+---
+
+
 ### vmc1.c
+
+#### Panoramica
+Il modulo **vmc1.c** gestisce il sottosistema di memoria virtuale. Fornisce strumenti per l'inizializzazione, l'allocazione della memoria virtuale, e la gestione dei page fault. Utilizza il file di swap per mantenere uno spazio virtuale esteso e una strategia Round-Robin per la gestione della Translation Lookaside Buffer (TLB), assicurando semplicità ed efficienza.
+
+---
+
+#### Strutture Dati
+- **`unsigned int current_victim`**: Variabile globale statica che indica il prossimo indice TLB da sovrascrivere secondo la strategia Round-Robin.
+- **costanti**:
+  - `VMC1_STACKPAGES`: Numero di pagine riservate per lo stack.
+
+---
+
+#### Funzioni
+
+**Inizializzazione e Terminazione**
+- `vm_bootstrap()`: Inizializza il sottosistema di memoria virtuale. Configura la coremap, resetta il contatore TLB, e avvia il sistema di statistiche.
+- `vm_shutdown()`: Libera risorse come il file di swap e la coremap. Stampa le statistiche raccolte durante l'esecuzione.
+
+**Gestione TLB**
+- `tlb_get_rr_victim()`: Implementa la selezione Round-Robin per determinare quale entry TLB sovrascrivere. Restituisce l'indice dello slot selezionato.
+- `vm_tlbshootdown(const struct tlbshootdown *ts)`: Non implementata; genererà un errore in caso di chiamata.
+
+**Gestione dei Page Fault**
+- `vm_fault(int fault_type, vaddr_t fault_addr)`: Risolve page fault gestendo indirizzi mancanti nella TLB o nella memoria fisica:
+  - Recupera l'indirizzo fisico dalla page table.
+  - Alloca una nuova pagina se necessario, azzerandola per lo stack o caricandola dal file di swap.
+  - Aggiorna la TLB con la nuova mappatura.
+  - Supporta i tipi di fault `VM_FAULT_READ`, `VM_FAULT_WRITE`, e `VM_FAULT_READONLY`.
+
+**Funzioni di Supporto**
+- `vm_can_sleep()`: Verifica che il sistema sia in uno stato sicuro per entrare in modalità sleep, assicurandosi che non ci siano spinlock attivi o interruzioni in corso.
+
+---
 
 ## Funzionalità implementate
 
