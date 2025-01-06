@@ -1,8 +1,7 @@
 # Progetto os161-c1
 
 ## Introduzione
-Il progetto mira a espandere il modulo di gestione della memoria (dumbvm), sostituendolo completamente con un gestore di memoria virtuale più potente basato sulle tabelle delle pagine dei processi.
-
+Il progetto prevede la sostituzione di dumbvm con un gestore della memoria virtuale basato su tabelle delle pagine per processo, includendo caricamento delle pagine su richiesta, sostituzione delle pagine e gestione avanzata del TLB con politiche di rimpiazzo. L'obiettivo è supportare spazi di indirizzamento più grandi della memoria fisica, implementando politiche di selezione delle vittime e gestione dei frame liberi.
 
 ## Autori
 * s292671 Donato Agostino Modugno
@@ -327,7 +326,11 @@ Il modulo **vmc1.c** gestisce il sottosistema di memoria virtuale. Fornisce stru
 ## Funzionalità implementate
 
 ### Tlb Management
+Il modulo di gestione della TLB implementa il caricamento e la sostituzione delle voci TLB al verificarsi di un TLB miss. Ogni nuova voce viene aggiunta sfruttando lo spazio libero o sostituendo una voce esistente tramite una politica di sostituzione Round-Robin, che ciclicamente seleziona la prossima voce da evictare. Inoltre, la funzione as_activate garantisce l'invalidamento del TLB durante i context switch, assicurando che le voci siano sempre relative al processo corrente.
+
 ### Read-Only Text Segment 
 ### On-Demand Page Loading
+Il sistema implementa un caricamento delle pagine "on demand", allocando frame fisici e caricando le pagine solo al primo accesso. Durante un'eccezione di TLB miss, il kernel verifica se la pagina è già in memoria; se non lo è, utilizza il modulo Coremap per la gestione dei frame fisici per allocare uno spazio, recupera i dati ELF e aggiorna la mappatura dell'address space. Infine, inserisce la nuova mappatura nella TLB utilizzando una politica di sostituzione Round-Robin, se necessario. Questo approccio riduce il consumo di memoria fisica caricando solo le pagine effettivamente utilizzate.
+
 ### Page Replacement 
 ### Instrumentation ( Statistiche )
