@@ -206,6 +206,41 @@ Il file utilizza alcune costanti per la gestione degli indici e degli offset:
 - **`SIZE_PT_OUTER`**, **`SIZE_PT_INNER`**: dimensioni della outer e inner table.
 
 ### segments.c
+
+#### Strutture Dati
+
+```c
+struct segment {
+    uint32_t		p_type;
+	uint32_t		p_offset;
+	uint32_t		p_vaddr;
+	uint32_t		p_filesz;
+	uint32_t		p_memsz;
+	uint32_t		p_permission;
+	struct vnode	*vnode;
+};
+```
+
+- **`struct segment`**: struttura che definisce un segmento
+    - `p_type`: tipo di segmento
+    - `p_offset`: posizione dei dati all'interno del file in cui inizia il segmento
+    - `p_vaddr`: indirizzo virtuale (base address)
+    - `p_filesz`: dimensione dei dati all'interno del file
+    - `p_memsz`: dimensione dei dato da caricare in memoria
+    - `p_permisison`: descrive quali operazioni possono essere eseguite sulle pagine del segmento
+
+I possibili valori di `p_permission` (definiti in `elf.h`) sono:
+- `PF_R` (0x4): il segmento è leggibile
+- `PF_W` (0x2): il segmento è scrivibile
+- `PF_X` (0x1): il segmento è eseguibile
+- `PF_S` (0x8): il segmento è stack
+
+#### Funzioni
+
+- `seg_create()`, `seg_copy()` e `seg_destroy()`: metodi principali di gestione della struttura segment
+- `seg_define()` e `seg_define_stack()`: vengono invocati nel momento di creazione del processo. La differenza è che dati e codice vengono caricati da file mentre lo stack no
+- `int seg_load_page(struct segment* seg, vaddr_t va, paddr_t pa)`: riceve l'indirizzo virtuale che ha causato il page fault e l'indirizzo fisico iniziale del frame di memoria che è già stato allocato per ospitare la pagina, quindi calcola quante pagine sono necessarie, l'indice della pagina all'interno del segmento e l'offset da aggiungere per la fault page. Questi risultati verranno usati per riempire la struttura uio per la gestione dei fault
+
 ### statistics.c
 
 #### Panoramica
@@ -262,6 +297,37 @@ Quando le statistiche vengono stampate, vengono effettuati dei controlli di cons
 Se uno di questi controlli fallisce, viene emesso un avviso tramite `kprintf`.
 
 ### swapfile.c
+
+#### Panoramica
+
+Viene creato uno swapfile della dimensione (arbitraria) di 9 MB suddivisa in un numero di pagine pari a `NUM_PAGES = FILE_SIZE / PAGE_SIZE`
+
+#### Strutture Dati
+
+```c
+struct swap_page {
+    paddr_t ppadd;
+    vaddr_t pvadd;
+    off_t swap_offset;
+    int free;
+};
+```
+
+- **`struct swap_page`**: struttura che definisce una pagina nello swapfile
+    - `ppadd`: indirizzo fisico
+    - `pvadd`: indirizzo virtuale
+    - `swap_offset`: offset della pagina
+    - `free`: 1 se libero, 0 se occupato
+
+Viene creata una lista di struct di lunghezza `NUM_PAGES`
+
+#### Funzioni
+
+- `swapfile_init(void)`: tutti i parametri dello swapfile vengono settati a 0, ad eccezione di `free` che viene settato a 1
+- `swap_out(paddr_t ppaddr, vaddr_t pvaddr)`: viene invocata nel momento in cui si vuole rimuovere una pagina (victim page) dalla memoria fisica e copiarla nello swapfile
+- `swap_in(paddr_t ppadd, off_t offset)`: viene invocata nel momento in cui si vuole inserire una pagina dallo swapfile nella memoria fisica
+- `swap_shutdown(void)`: resetta l'intera lista di struct
+- `getIn()` e `getOut()`: restituiscono rispettivamente il numero di pagine swappate in ingresso e in uscita
 
 ### vm_tlb.c
 
