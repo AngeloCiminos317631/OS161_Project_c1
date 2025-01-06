@@ -1,7 +1,8 @@
 # Progetto os161-c1
 
 ## Introduzione
-Il progetto mira a espandere il modulo di gestione della memoria (dumbvm), sostituendolo completamente con un gestore di memoria virtuale più potente basato sulle tabelle delle pagine dei processi. Il progetto richiede inoltre di lavorare sulla TLB.
+Il progetto mira a espandere il modulo di gestione della memoria (dumbvm), sostituendolo completamente con un gestore di memoria virtuale più potente basato sulle tabelle delle pagine dei processi.
+
 
 ## Autori
 * s292671 Donato Agostino Modugno
@@ -10,6 +11,12 @@ Il progetto mira a espandere il modulo di gestione della memoria (dumbvm), sosti
 
 
 ## Divisione del lavoro
+* **Donato Agostino Modugno**
+	* Implementazione del modulo per la gestione dello Swapfile `swapfile.c` e del modulo per la gestione dei Segments `segments.c`
+* **Simone Colagiovanni**
+	* Implementazione del modulo per la gestione dell' Address Space `addrspace.c` , del modulo per la gestione della Page Table `pt.c` e della parte relativa alle statistiche inerenti al sistema di gestione 	della 	memoria virtuale `statistics.c`
+* **Angelo Cimino**
+	* Implementazione del modulo per la gestione della Coremap `coremap.c` , del modulo per la gestione della Virtual Memory `vm_c1.c` e parte della TLB  `vm_tlb.c` . Gestione delle opzioni e delle 		configurazioni per il progetto `C1_PAG`.
 
 
 ## Scelte Implemetative
@@ -61,23 +68,10 @@ Inoltre, viene copiata anche la page table.
 
 - **`void as_activate(void)`**: attiva l'address space del processo corrente. Se un processo ha un address space, vengono invalidate tutte le voci della TLB per garantire che le mappature siano aggiornate. Se il processo non ha un address space (ad esempio, è un thread del kernel), non viene eseguita alcuna operazione.
 
-```c
-for (i = 0; i < NUM_TLB; i++) {
-    tlb_write(TLBHI_INVALID(i), TLBLO_INVALID(), i);  // Invalida tutte le voci della TLB
-}
-```
-
 - **`as_deactivate(void)`**: Simile a `as_activate`, la funzione `as_deactivate` disattiva l'address space corrente invalidando tutte le voci della TLB. Questo garantisce che le vecchie mappature delle pagine virtuali non siano più valide.
 
 - **`as_define_region(struct addrspace *as, uint32_t type, uint32_t offset ,vaddr_t vaddr, size_t memsize,
 		 uint32_t filesize, int readable, int writeable, int executable, int seg_n, struct vnode *v)`**: definisce una regione di memoria in un address space. Essa stabilisce i permessi di accesso (lettura, scrittura, esecuzione) per il segmento specificato e ne determina le caratteristiche, come il tipo, l'offset, l'indirizzo virtuale e la dimensione in memoria. I segmenti possibili sono `code` e `data`.
-
-```c
-if (readable) perm = perm | PF_R;     // Imposta il permesso di lettura
-if (writeable) perm = perm | PF_W;    // Imposta il permesso di scrittura
-if (executable) perm = perm | PF_X;   // Imposta il permesso di esecuzione
-res = seg_define(as->code, type, offset, vaddr, filesize, memsize, perm, v); // Definisce il segmento di codice
-```
 
 - **`as_prepare_load e as_complete_load`**: non contengono implementazioni specifiche. Sono destinate alla preparazione e al completamento del caricamento di un programma nell'address space. Potrebbero essere implementate in futuro per gestire operazioni specifiche.
 
@@ -85,15 +79,6 @@ res = seg_define(as->code, type, offset, vaddr, filesize, memsize, perm, v); // 
 
 - **`as_get_segment(struct addrspace *as, vaddr_t va)`**: restituisce il segmento (code, data o stack) associato a un dato indirizzo virtuale (`va`). Questo permette di identificare a quale parte dell'address space appartiene una determinata pagina.
 
-```c
-if (va >= base_seg1 && va <= top_seg1) {
-    return as->code;  // Se l'indirizzo è nel segmento di codice, restituisce il segmento di codice
-} else if (va >= base_seg2 && va <= top_seg2) {
-    return as->data;  // Se l'indirizzo è nel segmento di dati, restituisce il segmento di dati
-} else if (va >= base_seg3 && va <= top_seg3) {
-    return as->stack; // Se l'indirizzo è nel segmento di stack, restituisce il segmento di stack
-}
-```
 ### coremap.c
 
 #### Panoramica
@@ -251,51 +236,6 @@ Il file `statistics.c` implementa un sistema di gestione delle statistiche per m
 
 Il sistema di statistiche è costituito da un insieme di contatori e funzioni che consentono di inizializzare, incrementare, e visualizzare le statistiche. Le statistiche vengono raccolte in modo sicuro grazie all'uso di un **spinlock** per sincronizzare l'accesso concorrente ai contatori.
 
-#### Contatori
-
-I contatori gestiti da questo sistema sono memorizzati nell'array `counters`, dove ogni indice corrisponde a una statistica specifica. L'array è definito come:
-
-```c
-static unsigned int counters[N_STATS];
-```
-
-Ogni contatore è associato a una statistica e viene identificato dal proprio indice nell'array. Le statistiche disponibili sono:
-
-- **TLB Faults**
-- **TLB Faults with Free**
-- **TLB Faults with Replace**
-- **TLB Invalidations**
-- **TLB Reloads**
-- **Page Faults (Zeroed)**
-- **Page Faults (Disk)**
-- **Page Faults from ELF**
-- **Page Faults from Swapfile**
-- **Swapfile Writes**
-
-#### Variabili globali
-
-- **statistics_spinlock**: Un spinlock utilizzato per garantire che l'accesso ai contatori sia sicuro in un ambiente concorrente.
-- **statistics_names[]**: Un array che contiene i nomi delle statistiche, in ordine corrispondente agli indici dei contatori nell'array `counters`.
-- **is_active**: Un flag che indica se il sistema di statistiche è attivo o meno.
-
-#### Funzioni
-
-- **`init_statistics(void)`**: Inizializza il sistema di statistiche, azzerando tutti i contatori e attivando il sistema. La funzione acquisisce il **spinlock** per garantire la sincronizzazione durante l'inizializzazione.
-
-- **`increment_statistics(unsigned int stat)`**: Incrementa il contatore specificato dall'indice `stat`. La funzione verifica che il sistema sia attivo e che l'indice del contatore sia valido prima di procedere. La funzione è protetta da un **spinlock** per evitare accessi concorrenti ai contatori.
-
-- **`print_all_statistics(void)`**: Stampa tutte le statistiche attualmente registrate. La funzione calcola somme parziali e controlla la consistenza dei dati, emettendo avvisi in caso di discrepanze tra i contatori. Se il sistema di statistiche non è attivo, la funzione non esegue alcuna stampa.
-
-#### Controlli di consistenza
-
-Quando le statistiche vengono stampate, vengono effettuati dei controlli di consistenza tra le varie statistiche, per garantire che i totali e le somme parziali siano coerenti. In particolare, vengono effettuati i seguenti controlli:
-
-- **TLB Faults** devono essere uguali alla somma di **TLB Faults with Free** e **TLB Faults with Replace**.
-- **TLB Faults** devono essere uguali alla somma di **TLB Reloads**, **Page Faults (Zeroed)** e **Page Faults (Disk)**.
-- **Page Faults (Disk)** devono essere uguali alla somma di **Page Faults from ELF** e **Page Faults from Swapfile**.
-
-Se uno di questi controlli fallisce, viene emesso un avviso tramite `kprintf`.
-
 ### swapfile.c
 
 #### Panoramica
@@ -336,10 +276,6 @@ Il modulo **vm_tlb.c** gestisce le operazioni sulla TLB (Translation Lookaside B
 
 ---
 
-#### Strutture Dati
-
----
-
 #### Funzioni
 
 - **`tlb_remove_by_va(vaddr_t va)`**: 
@@ -354,21 +290,18 @@ Il modulo **vm_tlb.c** gestisce le operazioni sulla TLB (Translation Lookaside B
 
 ---
 
-
 ### vmc1.c
 
 #### Panoramica
 Il modulo **vmc1.c** gestisce il sottosistema di memoria virtuale. Fornisce strumenti per l'inizializzazione, l'allocazione della memoria virtuale, e la gestione dei page fault. Utilizza il file di swap per mantenere uno spazio virtuale esteso e una strategia Round-Robin per la gestione della Translation Lookaside Buffer (TLB), assicurando semplicità ed efficienza.
 
 ---
-
 #### Strutture Dati
 - **`unsigned int current_victim`**: Variabile globale statica che indica il prossimo indice TLB da sovrascrivere secondo la strategia Round-Robin.
 - **costanti**:
   - `VMC1_STACKPAGES`: Numero di pagine riservate per lo stack.
 
 ---
-
 #### Funzioni
 
 **Inizializzazione e Terminazione**
@@ -398,5 +331,3 @@ Il modulo **vmc1.c** gestisce il sottosistema di memoria virtuale. Fornisce stru
 ### On-Demand Page Loading
 ### Page Replacement 
 ### Instrumentation ( Statistiche )
-
-## Considerazioni finali
