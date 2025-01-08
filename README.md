@@ -340,3 +340,23 @@ La **coremap** traccia lo stato dei frame (`free`, `clean`, `dirty`, `fixed`), g
 Per la gestione concorrente sono usati spinlock, garantendo integrità durante le operazioni critiche.
 
 ### Instrumentation ( Statistiche )
+
+Abbiamo eseguito i seguenti test per verificare la memoria virtuale:
+
+- **palin**
+- **huge**
+- **ctest**
+- **sort**
+- **matmul**
+
+### Risultati:
+
+| Test        | TLB Faults | TLB Faults con Free | TLB Faults con Replace | TLB Invalidations | TLB Reloads | Page Faults (zero filled) | Page Faults (disk) | Page Faults from ELF | Page Faults from Swapfile | Swapfile Writes |
+|-------------|------------|----------------------|-------------------------|-------------------|-------------|---------------------------|--------------------|-----------------------|--------------------------|-----------------|
+| **palin**   | 13918      | 13918               | 0                       | 8010              | 13913       | 1                         | 4                  | 4                     | 0                        | 0               |
+| **huge**    | 7574       | 7574                | 0                       | 7190              | 3908        | 512                       | 3154               | 3                     | 3151                     | 3631            |
+| **ctest**   | 249425     | 249425              | 0                       | 251495            | 123658      | 257                       | 125510             | 3                     | 125507                   | 125724          |
+| **sort**    | 8483       | 8483                | 0                       | 4501              | 6198        | 289                       | 1996               | 4                     | 1992                     | 2242            |
+| **matmul**  | 4824       | 4824                | 0                       | 1586              | 3967        | 380                       | 477                | 3                     | 474                      | 814             |
+
+Il valore 0 per **"TLB Faults with Replace"** è dovuto all'uso di una tabella a più livelli per la gestione della memoria. In questo caso, l'indirizzamento virtuale viene risolto in più fasi, riducendo la necessità di sostituire voci nel TLB. Poiché la struttura a più livelli ottimizza l'accesso alle pagine e riduce la probabilità di esaurire lo spazio del TLB, non si verificano TLB misses che richiedano sostituzioni, portando così a un valore di 0 per **"TLB Faults with Replace"**.
