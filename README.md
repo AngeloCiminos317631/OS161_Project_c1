@@ -333,4 +333,10 @@ Il modulo di gestione della TLB implementa il caricamento e la sostituzione dell
 Il sistema implementa un caricamento delle pagine "on demand", allocando frame fisici e caricando le pagine solo al primo accesso. Durante un'eccezione di TLB miss, il kernel verifica se la pagina è già in memoria; se non lo è, utilizza il modulo Coremap per la gestione dei frame fisici per allocare uno spazio, recupera i dati ELF e aggiorna la mappatura dell'address space. Infine, inserisce la nuova mappatura nella TLB utilizzando una politica di sostituzione Round-Robin, se necessario. Questo approccio riduce il consumo di memoria fisica caricando solo le pagine effettivamente utilizzate.
 
 ### Page Replacement 
+Il sistema utilizza un algoritmo di **page replacement Round Robin**, semplice e funzionale, per selezionare ciclicamente le pagine da sostituire. Le pagine in stato `dirty` vengono scritte su un file **SWAPFILE**, limitato a **9 MB**. Se lo spazio richiesto supera questo limite, il kernel invoca `panic("Out of swap space")`. La dimensione massima è configurabile a compile time.
+
+La **coremap** traccia lo stato dei frame (`free`, `clean`, `dirty`, `fixed`), gestendo la sostituzione solo per i frame non riservati al kernel (`fixed`). In assenza di frame liberi, la pagina vittima viene salvata su disco con `swap_out`, la TLB aggiornata, e la tabella delle pagine modificata per indicare lo stato "swapped out".
+
+Per la gestione concorrente sono usati spinlock, garantendo integrità durante le operazioni critiche.
+
 ### Instrumentation ( Statistiche )
