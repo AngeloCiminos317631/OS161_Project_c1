@@ -13,20 +13,14 @@ Il progetto prevede la sostituzione di dumbvm con un gestore della memoria virtu
 * **Donato Agostino Modugno**
 	* Implementazione del modulo per la gestione dello Swapfile `swapfile.c` e del modulo per la gestione dei Segments `segments.c`
 * **Simone Colagiovanni**
-	* Implementazione del modulo per la gestione dell' Address Space `addrspace.c` , del modulo per la gestione della Page Table `pt.c` e della parte relativa alle statistiche inerenti al sistema di gestione 	della 	memoria virtuale `statistics.c`
+	* Implementazione del modulo per la gestione dell' Address Space `addrspace.c` , del modulo per la gestione della Page Table `pt.c` e della parte relativa alle statistiche inerenti al sistema di gestione della memoria virtuale `statistics.c`
 * **Angelo Cimino**
-	* Implementazione del modulo per la gestione della Coremap `coremap.c` , del modulo per la gestione della Virtual Memory `vm_c1.c` e parte della TLB  `vm_tlb.c` . Gestione delle opzioni e delle 		configurazioni per il progetto `C1_PAG`.
+	* Implementazione del modulo per la gestione della Coremap `coremap.c` , del modulo per la gestione della Virtual Memory `vm_c1.c` e parte della TLB `vm_tlb.c` . Gestione delle opzioni e delle configurazioni per il progetto `C1_PAG`.
 
 
 ## Scelte Implemetative
-DA MODIFICARE - RISPONDERE A QUESTE RICHIESTE 
-( The project goal is to replace dumbvm with a new virtual-memory system that relaxes some (not all) of 
-dumbvm’s limitations.  
-The new system will implement demand paging (with a page table) with page replacement, according to the following requirements: 
-• New TLB support is needed, by implementing a replacement policy for the TLB, so that the kernel 
-will not crash if the TLB fills up. 
-• On-demand loading of pages: this will allow programs that have address spaces larger than physical memory to run, provided that they do not touch more pages than will fit in physical memory.  • In addition, page replacement (based on victim selection) is needed, so that a new frame can be found when no more free frames are available.  
-• Different page table policies can be implemented: e.g. per process page table or Inverted PT, victim selection policies, free frame management, etc. The choice can be discussed and deferred to a later moment. )
+Per "rilassare" i limiti di dumbvm ci siamo serviti di alcuni file. Nella cartella `vm` troviamo: addrspace.c, coremap.c, kmalloc.c, pt.c, segments.c, vm_tlb.c e vmc1.c.
+Analizzeremo ogni file più nel dettaglio nelle sezioni seguenti.
 
 ## Moduli principali
 
@@ -211,7 +205,7 @@ struct segment {
     - `p_vaddr`: indirizzo virtuale (base address)
     - `p_filesz`: dimensione dei dati all'interno del file
     - `p_memsz`: dimensione dei dato da caricare in memoria
-    - `p_permisison`: descrive quali operazioni possono essere eseguite sulle pagine del segmento
+    - `p_permission`: descrive quali operazioni possono essere eseguite sulle pagine del segmento
 
 I possibili valori di `p_permission` (definiti in `elf.h`) sono:
 - `PF_R` (0x4): il segmento è leggibile
@@ -223,7 +217,7 @@ I possibili valori di `p_permission` (definiti in `elf.h`) sono:
 
 - `seg_create()`, `seg_copy()` e `seg_destroy()`: metodi principali di gestione della struttura segment
 - `seg_define()` e `seg_define_stack()`: vengono invocati nel momento di creazione del processo. La differenza è che dati e codice vengono caricati da file mentre lo stack no
-- `int seg_load_page(struct segment* seg, vaddr_t va, paddr_t pa)`: riceve l'indirizzo virtuale che ha causato il page fault e l'indirizzo fisico iniziale del frame di memoria che è già stato allocato per ospitare la pagina, quindi calcola quante pagine sono necessarie, l'indice della pagina all'interno del segmento e l'offset da aggiungere per la fault page. Questi risultati verranno usati per riempire la struttura uio per la gestione dei fault
+- `int seg_load_page(struct segment* seg, vaddr_t va, paddr_t pa)`: riceve l'indirizzo virtuale che ha causato il page fault e l'indirizzo fisico iniziale del frame di memoria che è già stato allocato per ospitare la pagina, quindi calcola quante pagine sono necessarie, l'indice della pagina all'interno del segmento e l'offset da aggiungere per la fault page. Questi risultati verranno usati per riempire la struttura uio per la gestione dei fault.
 
 ### statistics.c
 
@@ -328,7 +322,17 @@ Il modulo **vmc1.c** gestisce il sottosistema di memoria virtuale. Fornisce stru
 ### Tlb Management
 Il modulo di gestione della TLB implementa il caricamento e la sostituzione delle voci TLB al verificarsi di un TLB miss. Ogni nuova voce viene aggiunta sfruttando lo spazio libero o sostituendo una voce esistente tramite una politica di sostituzione Round-Robin, che ciclicamente seleziona la prossima voce da evictare. Inoltre, la funzione as_activate garantisce l'invalidamento del TLB durante i context switch, assicurando che le voci siano sempre relative al processo corrente.
 
-### Read-Only Text Segment 
+### Read-Only Text Segment
+
+Per evitare il crash del kernel, ogni processo verrà terminato ad ogni tentativo di modificarne il text segment. In vmc1.c controlliamo i permessi del segmento: se è read-only con dirty bit impostato su 0, nessun processo può scrivere su una pagina con un flag TLBLO_DIRTY impostato su 0.
+
+```c
+if (seg->p_permission == (PF_R | PF_W) || seg->p_permission == PF_S || seg->p_permission == PF_W)
+{
+    elo = elo | TLBLO_DIRTY;
+}
+```
+
 ### On-Demand Page Loading
 Il sistema implementa un caricamento delle pagine "on demand", allocando frame fisici e caricando le pagine solo al primo accesso. Durante un'eccezione di TLB miss, il kernel verifica se la pagina è già in memoria; se non lo è, utilizza il modulo Coremap per la gestione dei frame fisici per allocare uno spazio, recupera i dati ELF e aggiorna la mappatura dell'address space. Infine, inserisce la nuova mappatura nella TLB utilizzando una politica di sostituzione Round-Robin, se necessario. Questo approccio riduce il consumo di memoria fisica caricando solo le pagine effettivamente utilizzate.
 
